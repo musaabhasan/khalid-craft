@@ -9,6 +9,7 @@ Khalid Craft is an original browser voxel sandbox built for simple shared hostin
 - Place blocks with click, remove blocks with Shift-click, Alt-click, or `F`
 - Creative flight movement with `WASD`, `Space`, `Ctrl`/`C`, and sprint with `Shift`
 - Touch look controls and mobile movement buttons
+- Responsive phone and iPad layout with compact controls
 - Character identities for Khalid and secondary character Omar using included portrait assets
 - Starts with a simple password gate using password `6767`
 - Runs directly in the browser after password entry

@@ -111,6 +111,8 @@ function init() {
     const roster = characters.map((item) => item.name).join(' and ');
     showStatus(`${roster} are ready. Worlds save in this browser.`, false, 2200);
     window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', () => window.setTimeout(resize, 250));
+    window.visualViewport?.addEventListener('resize', resize);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', (event) => pressed.delete(event.code));
     dom.canvas.addEventListener('click', onCanvasClick);
@@ -504,6 +506,7 @@ function onCanvasClick(event) {
 
 function onPointerDown(event) {
     if (event.pointerType === 'touch') {
+        event.preventDefault();
         lastTouch = { x: event.clientX, y: event.clientY };
         dom.canvas.setPointerCapture(event.pointerId);
     }
@@ -514,6 +517,7 @@ function onPointerMove(event) {
         return;
     }
 
+    event.preventDefault();
     const dx = event.clientX - lastTouch.x;
     const dy = event.clientY - lastTouch.y;
     lastTouch = { x: event.clientX, y: event.clientY };

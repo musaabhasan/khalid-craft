@@ -72,7 +72,7 @@ $jsUrl = $assetUrl($jsPath);
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title><?= $appName ?></title>
     <link rel="preconnect" href="https://unpkg.com">
     <?php if ($gameUnlocked): ?>
