@@ -233,13 +233,18 @@ select option {
     grid-template-columns: minmax(0, 1fr) 38px 38px;
 }
 
+.character-list {
+    display: grid;
+    gap: 10px;
+}
+
 .character-card {
     position: relative;
     display: grid;
-    grid-template-columns: 86px minmax(0, 1fr);
+    grid-template-columns: 76px minmax(0, 1fr);
     align-items: end;
     gap: 12px;
-    min-height: 112px;
+    min-height: 102px;
     padding: 10px;
     border: 1px solid rgba(112, 183, 215, 0.32);
     border-radius: 8px;
@@ -263,12 +268,12 @@ select option {
 .character-image {
     position: relative;
     z-index: 1;
-    width: 86px;
-    height: 92px;
+    width: 76px;
+    height: 82px;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 6px;
     object-fit: cover;
-    object-position: 50% 28%;
+    object-position: 50% 24%;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
@@ -527,12 +532,12 @@ select option {
     }
 
     .character-card {
-        grid-template-columns: 74px minmax(0, 1fr);
+        grid-template-columns: 70px minmax(0, 1fr);
         min-height: 98px;
     }
 
     .character-image {
-        width: 74px;
+        width: 70px;
         height: 78px;
     }
 }

@@ -9,7 +9,7 @@ Khalid Craft is an original browser voxel sandbox built for PHP/MySQL shared hos
 - Place blocks with click, remove blocks with Shift-click, Alt-click, or `F`
 - Creative flight movement with `WASD`, `Space`, `Ctrl`/`C`, and sprint with `Shift`
 - Touch look controls and mobile movement buttons
-- Main character identity for Khalid using the included portrait asset
+- Character identities for Khalid and secondary character Omar using included portrait assets
 - Account registration and login with PHP sessions
 - MySQL-backed world save/load/delete per user
 - Browser demo save when MySQL or login is not available
@@ -53,5 +53,6 @@ The connected GitHub account visible to Codex is `musaabhasan`, but this environ
 - `assets/css/app.css` - responsive game interface
 - `assets/js/game.js` - Three.js voxel engine and API client
 - `assets/img/khalid-main-character.png` - Khalid main character portrait
+- `assets/img/omar-secondary-character.jpg` - Omar secondary character portrait
 - `database/schema.sql` - MySQL schema
 - `config/config.example.php` - production configuration template

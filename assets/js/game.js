@@ -2,10 +2,16 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const config = window.KHALIDCRAFT || {};
-const character = {
-    name: config.character?.name || 'Khalid',
-    image: config.character?.image || 'assets/img/khalid-main-character.png',
-};
+const characters = Array.isArray(config.characters) && config.characters.length > 0
+    ? config.characters
+    : [{
+        name: config.character?.name || 'Khalid',
+        role: config.character?.role || 'Main Character',
+        image: config.character?.image || 'assets/img/khalid-main-character.png',
+        position: [0, 5.7, 0],
+        scale: [3.2, 4.3, 1],
+    }];
+const primaryCharacter = characters[0];
 const dom = {
     canvas: document.getElementById('gameCanvas'),
     stage: document.getElementById('stage'),
@@ -103,9 +109,10 @@ function init() {
     bindUi();
     resize();
     generateWorld(currentSeed);
-    createCharacterAvatar();
+    createCharacterAvatars();
     loadWorldList();
-    showStatus(config.user ? `${character.name} is signed in. Cloud saves are ready.` : `${character.name} is ready. Sign in to save worlds.`, false, 2200);
+    const roster = characters.map((item) => item.name).join(' and ');
+    showStatus(config.user ? `${roster} are signed in. Cloud saves are ready.` : `${roster} are ready. Sign in to save worlds.`, false, 2200);
     window.addEventListener('resize', resize);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', (event) => pressed.delete(event.code));
@@ -163,11 +170,28 @@ function createMaterials() {
     return map;
 }
 
-function createCharacterAvatar() {
+function createCharacterAvatars() {
+    document.documentElement.dataset.characterAvatars = 'loading';
+    let loaded = 0;
+    let failed = 0;
+
+    characters.forEach((character, index) => {
+        createCharacterAvatar(character, index, (ok) => {
+            loaded += ok ? 1 : 0;
+            failed += ok ? 0 : 1;
+            if (loaded + failed === characters.length) {
+                document.documentElement.dataset.characterAvatars = failed > 0 ? 'partial' : 'ready';
+            }
+        });
+    });
+}
+
+function createCharacterAvatar(character, index, onDone) {
     const group = new THREE.Group();
     group.name = `${character.name} Avatar`;
-    group.position.set(0, 5.7, 0);
-    document.documentElement.dataset.khalidAvatar = 'loading';
+    const [x, y, z] = Array.isArray(character.position) ? character.position : [index * 3.2, 5.5, index * -0.6];
+    group.position.set(x, y, z);
+    document.documentElement.dataset[`${character.name.toLowerCase()}Avatar`] = 'loading';
 
     const loader = new THREE.TextureLoader();
     loader.load(character.image, (texture) => {
@@ -180,13 +204,16 @@ function createCharacterAvatar() {
             depthWrite: false,
         }));
         sprite.name = character.name;
-        sprite.renderOrder = 20;
-        sprite.scale.set(3.2, 4.3, 1);
+        sprite.renderOrder = 20 + index;
+        const [sx, sy, sz] = Array.isArray(character.scale) ? character.scale : [2.8, 4.2, 1];
+        sprite.scale.set(sx, sy, sz);
         group.add(sprite);
-        document.documentElement.dataset.khalidAvatar = 'ready';
-        window.__KHALIDCRAFT_AVATAR_READY = true;
+        document.documentElement.dataset[`${character.name.toLowerCase()}Avatar`] = 'ready';
+        window[`__KHALIDCRAFT_${character.name.toUpperCase()}_AVATAR_READY`] = true;
+        onDone(true);
     }, undefined, () => {
-        document.documentElement.dataset.khalidAvatar = 'error';
+        document.documentElement.dataset[`${character.name.toLowerCase()}Avatar`] = 'error';
+        onDone(false);
     });
 
     const label = makeTextSprite(character.name);
