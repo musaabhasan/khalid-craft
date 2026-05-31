@@ -11,7 +11,7 @@ Khalid Craft is an original browser voxel sandbox built for simple shared hostin
 - Touch look controls and mobile movement buttons
 - Responsive phone and iPad layout with compact controls
 - Kid quest with stars, block-building goals, and celebration feedback
-- Character identities for Khalid and secondary character Omar using included portrait assets
+- Character identities for Khalid, Omar, and 67 using included portrait assets
 - Starts with a simple password gate using password `6767`
 - Runs directly in the browser after password entry
 - Browser-only world save/load/delete with `localStorage`
@@ -44,3 +44,4 @@ https://github.com/musaabhasan/khalid-craft
 - `assets/js/game.js` - Three.js voxel engine and API client
 - `assets/img/khalid-main-character.png` - Khalid main character portrait
 - `assets/img/omar-secondary-character.jpg` - Omar secondary character portrait
+- `assets/img/67-character.png` - 67 friend character portrait

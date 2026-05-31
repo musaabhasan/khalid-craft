@@ -61,6 +61,13 @@ $characters = [
         'position' => [3.2, 5.35, -0.6],
         'scale' => [2.55, 4.2, 1],
     ],
+    [
+        'name' => '67',
+        'role' => 'Friend Character',
+        'image' => $assetUrl('assets/img/67-character.png'),
+        'position' => [-3.2, 5.35, -0.6],
+        'scale' => [2.75, 4.15, 1],
+    ],
 ];
 $characterNames = implode(' + ', array_column($characters, 'name'));
 $cssPath = 'assets/css/app.css';

@@ -12,6 +12,23 @@ const characters = Array.isArray(config.characters) && config.characters.length 
         scale: [3.2, 4.3, 1],
     }];
 const primaryCharacter = characters[0];
+
+function makeCharacterAvatarKey(name) {
+    const cleaned = String(name ?? 'friend').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+    if (/^[a-z]/.test(cleaned)) {
+        return `${cleaned}Avatar`;
+    }
+
+    return `character${cleaned || 'friend'}Avatar`;
+}
+
+function makeCharacterReadyFlag(name) {
+    const cleaned = String(name ?? 'friend').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+    return `__KHALIDCRAFT_${cleaned || 'FRIEND'}_AVATAR_READY`;
+}
+
 const dom = {
     canvas: document.getElementById('gameCanvas'),
     stage: document.getElementById('stage'),
@@ -212,7 +229,8 @@ function createCharacterAvatar(character, index, onDone) {
     group.name = `${character.name} Avatar`;
     const [x, y, z] = Array.isArray(character.position) ? character.position : [index * 3.2, 5.5, index * -0.6];
     group.position.set(x, y, z);
-    document.documentElement.dataset[`${character.name.toLowerCase()}Avatar`] = 'loading';
+    const avatarStatusKey = makeCharacterAvatarKey(character.name);
+    document.documentElement.dataset[avatarStatusKey] = 'loading';
 
     const loader = new THREE.TextureLoader();
     loader.load(character.image, (texture) => {
@@ -229,11 +247,11 @@ function createCharacterAvatar(character, index, onDone) {
         const [sx, sy, sz] = Array.isArray(character.scale) ? character.scale : [2.8, 4.2, 1];
         sprite.scale.set(sx, sy, sz);
         group.add(sprite);
-        document.documentElement.dataset[`${character.name.toLowerCase()}Avatar`] = 'ready';
-        window[`__KHALIDCRAFT_${character.name.toUpperCase()}_AVATAR_READY`] = true;
+        document.documentElement.dataset[avatarStatusKey] = 'ready';
+        window[makeCharacterReadyFlag(character.name)] = true;
         onDone(true);
     }, undefined, () => {
-        document.documentElement.dataset[`${character.name.toLowerCase()}Avatar`] = 'error';
+        document.documentElement.dataset[avatarStatusKey] = 'error';
         onDone(false);
     });
 
