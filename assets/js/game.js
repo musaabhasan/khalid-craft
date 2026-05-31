@@ -53,14 +53,40 @@ const blockTypes = [
     { id: 'stone', name: 'Stone', color: '#7f8588' },
     { id: 'wood', name: 'Wood', color: '#8a5a32' },
     { id: 'leaves', name: 'Leaves', color: '#3f8f46', transparent: true },
+    { id: 'path', name: 'Path', color: '#d8a85d' },
     { id: 'sand', name: 'Sand', color: '#d8c783' },
     { id: 'water', name: 'Water', color: '#3e9ed6', transparent: true },
     { id: 'glass', name: 'Glass', color: '#a4d9e8', transparent: true },
     { id: 'lamp', name: 'Lamp', color: '#f2c44b', emissive: true },
     { id: 'brick', name: 'Brick', color: '#a75045' },
+    { id: 'cloud', name: 'Cloud', color: '#f7fbff', transparent: true },
+    { id: 'flowerPink', name: 'Pink Flower', color: '#ff78b4', emissive: true },
+    { id: 'flowerBlue', name: 'Blue Flower', color: '#66d9ff', emissive: true },
+    { id: 'rainbowRed', name: 'Rainbow Red', color: '#ff5a63', emissive: true },
+    { id: 'rainbowYellow', name: 'Rainbow Yellow', color: '#ffe061', emissive: true },
+    { id: 'rainbowGreen', name: 'Rainbow Green', color: '#6ee27a', emissive: true },
+    { id: 'rainbowBlue', name: 'Rainbow Blue', color: '#5bb7ff', emissive: true },
+    { id: 'purple', name: 'Purple Block', color: '#a678ff', emissive: true },
+    { id: 'gold', name: 'Gold Block', color: '#ffd95b', emissive: true },
 ];
 
 const blockById = new Map(blockTypes.map((block) => [block.id, block]));
+const decorativeSurfaceTypes = new Set([
+    'leaves',
+    'wood',
+    'flowerPink',
+    'flowerBlue',
+    'cloud',
+    'rainbowRed',
+    'rainbowYellow',
+    'rainbowGreen',
+    'rainbowBlue',
+    'purple',
+    'gold',
+    'lamp',
+    'glass',
+    'water',
+]);
 const blocks = new Map();
 const pressed = new Set();
 const mobileMoves = new Set();
@@ -109,8 +135,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x80c5df);
-scene.fog = new THREE.Fog(0x80c5df, 32, 96);
+scene.background = new THREE.Color(0xb6edff);
+scene.fog = new THREE.Fog(0xb6edff, 38, 116);
 
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 240);
 camera.position.set(8, 9, 12);
@@ -216,8 +242,8 @@ function createMaterials() {
         }
 
         if (block.emissive) {
-            materialOptions.emissive = new THREE.Color(0xf0b83f);
-            materialOptions.emissiveIntensity = 0.65;
+            materialOptions.emissive = new THREE.Color(block.color);
+            materialOptions.emissiveIntensity = block.id.startsWith('rainbow') || block.id.startsWith('flower') ? 0.25 : 0.65;
         }
 
         map.set(block.id, new THREE.MeshStandardMaterial(materialOptions));
@@ -627,7 +653,30 @@ function makeBlockTexture(block) {
         }
     }
 
-    const speckles = block.id === 'glass' || block.id === 'water' ? 45 : 110;
+    if (block.id === 'path') {
+        ctx.fillStyle = '#e7bf78';
+        for (let y = 8; y < size; y += 16) {
+            ctx.fillRect(0, y, size, 4);
+        }
+        ctx.fillStyle = '#b77a3d';
+        ctx.fillRect(0, 48, size, 8);
+    }
+
+    if (block.id === 'cloud') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.fillRect(0, 0, size, 26);
+        ctx.fillStyle = 'rgba(169, 222, 255, 0.28)';
+        ctx.fillRect(0, 44, size, 20);
+    }
+
+    if (block.id.startsWith('flower') || block.id.startsWith('rainbow') || block.id === 'purple' || block.id === 'gold') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
+        ctx.fillRect(0, 0, size, 12);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+        ctx.fillRect(0, 48, size, 16);
+    }
+
+    const speckles = block.id === 'glass' || block.id === 'water' || block.id === 'cloud' ? 45 : 110;
     for (let i = 0; i < speckles; i += 1) {
         const x = Math.floor(rand(i + block.id.length) * size);
         const y = Math.floor(rand(i * 7 + block.id.length) * size);
@@ -690,27 +739,30 @@ function generateWorld(seed) {
     blocks.clear();
     const seedNumber = seedToNumber(seed);
 
-    for (let x = -18; x <= 18; x += 1) {
-        for (let z = -18; z <= 18; z += 1) {
-            const ridge = Math.sin((x + seedNumber) * 0.28) + Math.cos((z - seedNumber) * 0.24);
-            const detail = rand2(x, z, seedNumber) * 2.2;
+    for (let x = -24; x <= 24; x += 1) {
+        for (let z = -24; z <= 24; z += 1) {
+            const ridge = Math.sin((x + seedNumber) * 0.2) + Math.cos((z - seedNumber) * 0.19);
+            const rolling = Math.sin((x + z + seedNumber) * 0.09) * 0.9;
+            const detail = rand2(x, z, seedNumber) * 2.1;
+            const meadow = Math.sin((x - seedNumber) * 0.08) * Math.cos((z + seedNumber) * 0.08);
             const height = Math.max(1, Math.floor(2 + ridge + detail));
+            const smoothedHeight = Math.max(1, Math.floor(height + rolling + meadow * 0.7));
 
-            for (let y = 0; y <= height; y += 1) {
-                const type = y === height ? 'grass' : y > height - 3 ? 'dirt' : 'stone';
+            for (let y = 0; y <= smoothedHeight; y += 1) {
+                const type = y === smoothedHeight ? 'grass' : y > smoothedHeight - 3 ? 'dirt' : 'stone';
                 setBlock(x, y, z, type, false);
             }
 
-            if (height <= 2 && rand2(x + 60, z - 44, seedNumber) > 0.72) {
-                setBlock(x, height + 1, z, 'sand', false);
+            if (smoothedHeight <= 2 && rand2(x + 60, z - 44, seedNumber) > 0.7) {
+                setBlock(x, smoothedHeight + 1, z, 'sand', false);
             }
 
-            if (height <= 1 && rand2(x - 20, z + 12, seedNumber) > 0.76) {
-                setBlock(x, height + 1, z, 'water', false);
+            if (smoothedHeight <= 1 && rand2(x - 20, z + 12, seedNumber) > 0.74) {
+                setBlock(x, smoothedHeight + 1, z, 'water', false);
             }
 
-            if (height >= 3 && rand2(x + 12, z - 19, seedNumber) > 0.985) {
-                addTree(x, height + 1, z);
+            if (smoothedHeight >= 3 && rand2(x + 12, z - 19, seedNumber) > 0.988) {
+                addTree(x, smoothedHeight + 1, z);
             }
         }
     }
@@ -718,6 +770,7 @@ function generateWorld(seed) {
     camera.position.set(8, 9, 12);
     camera.lookAt(0, 3, 0);
     clearCompanionStartArea();
+    addKidWorldDecorations(seedNumber);
     rebuildMeshes();
 }
 
@@ -733,6 +786,254 @@ function clearCompanionStartArea() {
             }
         }
     }
+}
+
+function addKidWorldDecorations(seedNumber) {
+    addAdventurePath(seedNumber);
+    scatterFlowerMeadows(seedNumber);
+    addFlowerPatch(6, 13, 5, seedNumber + 101);
+    addFlowerPatch(-13, -9, 5, seedNumber + 203);
+    addRainbowArch(-5, 9);
+    addCloudCluster(-5, 13, 12, 3);
+    addMiniCastle(15, -7);
+    addMushroomGarden(-15, 10);
+    addBalloonCluster(13, 12);
+    addHappyStarCircle(1, -14);
+}
+
+function addAdventurePath(seedNumber) {
+    const points = [
+        [8, 12],
+        [8, 7],
+        [1, 8],
+        [-5, 9],
+        [-15, 10],
+        [-13, -9],
+        [1, -14],
+        [15, -7],
+        [13, 12],
+    ];
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+        drawSurfacePath(points[index], points[index + 1], 1 + (index % 2), seedNumber + index * 31);
+    }
+}
+
+function drawSurfacePath(from, to, width, seedNumber) {
+    const [x1, z1] = from;
+    const [x2, z2] = to;
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1)) * 2;
+
+    for (let step = 0; step <= steps; step += 1) {
+        const t = step / steps;
+        const wobble = Math.sin(t * Math.PI * 2 + seedNumber) * 0.35;
+        const x = Math.round(x1 + (x2 - x1) * t + wobble);
+        const z = Math.round(z1 + (z2 - z1) * t - wobble);
+        for (let dx = -width; dx <= width; dx += 1) {
+            for (let dz = -width; dz <= width; dz += 1) {
+                if (Math.abs(dx) + Math.abs(dz) <= width + 1) {
+                    setSurfaceTop(x + dx, z + dz, 'path');
+                    clearAboveSurface(x + dx, z + dz);
+                }
+            }
+        }
+    }
+}
+
+function scatterFlowerMeadows(seedNumber) {
+    for (let x = -23; x <= 23; x += 1) {
+        for (let z = -23; z <= 23; z += 1) {
+            const surface = getCharacterSurface(x, z);
+            const nearStart = Math.abs(x - 8) < 6 && Math.abs(z - 8) < 6;
+            if (!nearStart && surface.type === 'grass' && surface.y <= 7 && rand2(x + 500, z - 300, seedNumber) > 0.92) {
+                const flowerType = rand2(x - 200, z + 400, seedNumber) > 0.5 ? 'flowerPink' : 'flowerBlue';
+                setBlock(x, surface.y, z, flowerType, false);
+            }
+        }
+    }
+}
+
+function addFlowerPatch(cx, cz, radius, seedNumber) {
+    for (let x = cx - radius; x <= cx + radius; x += 1) {
+        for (let z = cz - radius; z <= cz + radius; z += 1) {
+            const dist = Math.hypot(x - cx, z - cz);
+            if (dist <= radius && rand2(x, z, seedNumber) > 0.28) {
+                const type = rand2(x + 80, z - 80, seedNumber) > 0.45 ? 'flowerPink' : 'flowerBlue';
+                setSurfaceTop(x, z, dist < 1.6 ? 'gold' : 'grass');
+                setBlock(x, findSurfaceY(x, z), z, type, false);
+            }
+        }
+    }
+}
+
+function addRainbowArch(cx, cz) {
+    const colors = ['rainbowRed', 'rainbowYellow', 'rainbowGreen', 'rainbowBlue', 'purple'];
+    const baseY = Math.max(findSurfaceY(cx - 8, cz), findSurfaceY(cx + 8, cz), findSurfaceY(cx, cz)) + 1;
+
+    colors.forEach((type, band) => {
+        const radius = 8 - band;
+        const z = cz + band - 2;
+        for (let dx = -radius; dx <= radius; dx += 1) {
+            const y = Math.round(Math.sqrt(Math.max(0, radius * radius - dx * dx)));
+            if (y >= 1) {
+                setBlock(cx + dx, baseY + y, z, type, false);
+            }
+        }
+    });
+
+    addCloudCluster(cx - 8, baseY + 1, cz, 2);
+    addCloudCluster(cx + 8, baseY + 1, cz, 2);
+}
+
+function addCloudCluster(cx, y, cz, radius) {
+    for (let x = -radius * 2; x <= radius * 2; x += 1) {
+        for (let yy = -1; yy <= 1; yy += 1) {
+            for (let z = -radius; z <= radius; z += 1) {
+                const shape = (x * x) / (radius * radius * 3.4) + (yy * yy) / 1.8 + (z * z) / (radius * radius * 1.2);
+                if (shape <= 1.15) {
+                    setBlock(cx + x, y + yy, cz + z, 'cloud', false);
+                }
+            }
+        }
+    }
+}
+
+function addMiniCastle(cx, cz) {
+    const baseY = prepareFlatPatch(cx, cz, 5, 'path');
+    for (let x = -4; x <= 4; x += 1) {
+        for (let z = -3; z <= 3; z += 1) {
+            const edge = Math.abs(x) === 4 || Math.abs(z) === 3;
+            if (edge) {
+                setBlock(cx + x, baseY, cz + z, 'purple', false);
+                if ((x + z) % 2 === 0) {
+                    setBlock(cx + x, baseY + 1, cz + z, 'purple', false);
+                }
+            }
+        }
+    }
+
+    const towers = [[-4, -3], [4, -3], [-4, 3], [4, 3]];
+    for (const [tx, tz] of towers) {
+        for (let y = 0; y <= 4; y += 1) {
+            setBlock(cx + tx, baseY + y, cz + tz, 'brick', false);
+        }
+        setBlock(cx + tx, baseY + 5, cz + tz, 'gold', false);
+        setBlock(cx + tx, baseY + 6, cz + tz, 'lamp', false);
+    }
+
+    for (let x = -1; x <= 1; x += 1) {
+        setBlock(cx + x, baseY, cz - 3, 'glass', false);
+    }
+}
+
+function addMushroomGarden(cx, cz) {
+    const spots = [[0, 0], [3, 2], [-3, 1], [2, -3], [-2, -2]];
+    spots.forEach(([dx, dz], index) => {
+        const x = cx + dx;
+        const z = cz + dz;
+        const baseY = findSurfaceY(x, z);
+        setBlock(x, baseY, z, 'wood', false);
+        setBlock(x, baseY + 1, z, 'wood', false);
+        const capType = index % 2 === 0 ? 'flowerPink' : 'purple';
+        for (let ix = -1; ix <= 1; ix += 1) {
+            for (let iz = -1; iz <= 1; iz += 1) {
+                if (Math.abs(ix) + Math.abs(iz) <= 2) {
+                    setBlock(x + ix, baseY + 2, z + iz, capType, false);
+                }
+            }
+        }
+        setBlock(x, baseY + 3, z, capType, false);
+    });
+}
+
+function addBalloonCluster(cx, cz) {
+    const colors = ['flowerPink', 'flowerBlue', 'gold', 'rainbowGreen', 'purple'];
+    colors.forEach((type, index) => {
+        const angle = (index / colors.length) * Math.PI * 2;
+        const x = Math.round(cx + Math.cos(angle) * 2);
+        const z = Math.round(cz + Math.sin(angle) * 2);
+        const baseY = findSurfaceY(x, z);
+        for (let y = 0; y < 4; y += 1) {
+            setBlock(x, baseY + y, z, 'glass', false);
+        }
+        addRoundBlob(x, baseY + 4, z, type, 1);
+    });
+}
+
+function addHappyStarCircle(cx, cz) {
+    for (let index = 0; index < 10; index += 1) {
+        const angle = (index / 10) * Math.PI * 2;
+        const x = Math.round(cx + Math.cos(angle) * 4);
+        const z = Math.round(cz + Math.sin(angle) * 4);
+        setSurfaceTop(x, z, index % 2 === 0 ? 'path' : 'gold');
+        setBlock(x, findSurfaceY(x, z), z, index % 3 === 0 ? 'lamp' : 'gold', false);
+    }
+}
+
+function addRoundBlob(cx, cy, cz, type, radius) {
+    for (let x = -radius; x <= radius; x += 1) {
+        for (let y = -radius; y <= radius; y += 1) {
+            for (let z = -radius; z <= radius; z += 1) {
+                if (x * x + y * y + z * z <= radius * radius + 0.5) {
+                    setBlock(cx + x, cy + y, cz + z, type, false);
+                }
+            }
+        }
+    }
+}
+
+function prepareFlatPatch(cx, cz, radius, topType) {
+    let baseY = 0;
+    for (let x = cx - radius; x <= cx + radius; x += 1) {
+        for (let z = cz - radius; z <= cz + radius; z += 1) {
+            if (Math.hypot(x - cx, z - cz) <= radius + 0.5) {
+                baseY = Math.max(baseY, findBuildSurfaceY(x, z));
+            }
+        }
+    }
+
+    for (let x = cx - radius; x <= cx + radius; x += 1) {
+        for (let z = cz - radius; z <= cz + radius; z += 1) {
+            if (Math.hypot(x - cx, z - cz) <= radius + 0.5) {
+                for (let y = 0; y < baseY - 1; y += 1) {
+                    if (!blocks.has(keyOf(x, y, z))) {
+                        setBlock(x, y, z, 'dirt', false);
+                    }
+                }
+                clearAboveSurface(x, z, 0);
+                setBlock(x, baseY - 1, z, topType, false);
+            }
+        }
+    }
+
+    return baseY;
+}
+
+function setSurfaceTop(x, z, type) {
+    const surfaceY = findBuildSurfaceY(x, z);
+    if (surfaceY <= worldBounds.minY + 1) {
+        return;
+    }
+
+    setBlock(x, surfaceY - 1, z, type, false);
+}
+
+function clearAboveSurface(x, z, offset = 0) {
+    const surfaceY = findBuildSurfaceY(x, z);
+    for (let y = surfaceY + offset; y <= worldBounds.maxY; y += 1) {
+        blocks.delete(keyOf(x, y, z));
+    }
+}
+
+function findBuildSurfaceY(x, z) {
+    for (let y = worldBounds.maxY; y >= worldBounds.minY; y -= 1) {
+        const type = blocks.get(keyOf(x, y, z));
+        if (type && !decorativeSurfaceTypes.has(type)) {
+            return y + 1;
+        }
+    }
+
+    return findSurfaceY(x, z);
 }
 
 function addTree(x, y, z) {

@@ -5,7 +5,7 @@ Khalid Craft is an original browser voxel sandbox built for simple shared hostin
 ## Features
 
 - First-person voxel world rendered in the browser
-- Procedural terrain, trees, water, sand, stone, grass, lamps, glass, brick, and leaves
+- Procedural terrain with trees, water, paths, flower meadows, rainbow arches, cloud clusters, balloons, mushrooms, and a mini castle
 - Place blocks with click, remove blocks with Shift-click, Alt-click, or `F`
 - Creative flight movement with `WASD`, `Space`, `Ctrl`/`C`, and sprint with `Shift`
 - Touch look controls and mobile movement buttons
