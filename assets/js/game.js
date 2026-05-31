@@ -25,9 +25,6 @@ const dom = {
     blockCount: document.getElementById('blockCount'),
     selectedBlock: document.getElementById('selectedBlock'),
     status: document.getElementById('statusPill'),
-    loginForm: document.getElementById('loginForm'),
-    registerForm: document.getElementById('registerForm'),
-    logoutButton: document.getElementById('logoutButton'),
 };
 
 const blockTypes = [
@@ -112,7 +109,7 @@ function init() {
     createCharacterAvatars();
     loadWorldList();
     const roster = characters.map((item) => item.name).join(' and ');
-    showStatus(config.user ? `${roster} are signed in. Cloud saves are ready.` : `${roster} are ready. Sign in to save worlds.`, false, 2200);
+    showStatus(`${roster} are ready. Worlds save in this browser.`, false, 2200);
     window.addEventListener('resize', resize);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', (event) => pressed.delete(event.code));
@@ -349,6 +346,7 @@ function bindUi() {
         currentWorldId = null;
         currentSeed = makeSeed();
         dom.worldName.value = 'Khalid World';
+        dom.worldSelect.value = '';
         generateWorld(currentSeed);
         showStatus('New world generated.');
     });
@@ -356,43 +354,6 @@ function bindUi() {
     dom.saveWorld.addEventListener('click', saveWorld);
     dom.loadWorld.addEventListener('click', loadSelectedWorld);
     dom.deleteWorld.addEventListener('click', deleteSelectedWorld);
-
-    dom.loginForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const form = new FormData(dom.loginForm);
-        await submitAuth('api/login.php', {
-            login: form.get('login'),
-            password: form.get('password'),
-        });
-    });
-
-    dom.registerForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const form = new FormData(dom.registerForm);
-        await submitAuth('api/register.php', {
-            username: form.get('username'),
-            email: form.get('email'),
-            password: form.get('password'),
-        });
-    });
-
-    dom.logoutButton?.addEventListener('click', async () => {
-        try {
-            await api('api/logout.php', { method: 'POST', body: {} });
-            window.location.reload();
-        } catch (error) {
-            showStatus(error.message, true);
-        }
-    });
-}
-
-async function submitAuth(path, payload) {
-    try {
-        await api(path, { method: 'POST', body: payload });
-        window.location.reload();
-    } catch (error) {
-        showStatus(error.message, true);
-    }
 }
 
 function selectBlock(type) {
@@ -639,86 +600,82 @@ function resize() {
 }
 
 async function loadWorldList() {
-    if (!config.user) {
-        return;
+    const worlds = readStoredWorlds();
+    dom.worldSelect.innerHTML = '<option value="">Saved worlds</option>';
+
+    for (const world of worlds) {
+        const option = document.createElement('option');
+        option.value = String(world.id);
+        option.textContent = `${world.name} (${world.block_count})`;
+        dom.worldSelect.appendChild(option);
     }
 
-    try {
-        const response = await api('api/worlds.php');
-        dom.worldSelect.innerHTML = '<option value="">Saved worlds</option>';
-        for (const world of response.worlds || []) {
-            const option = document.createElement('option');
-            option.value = String(world.id);
-            option.textContent = `${world.name} (${world.block_count})`;
-            dom.worldSelect.appendChild(option);
-        }
-    } catch (error) {
-        showStatus(error.message, true);
+    if (currentWorldId) {
+        dom.worldSelect.value = String(currentWorldId);
     }
 }
 
 async function saveWorld() {
-    if (!config.user) {
-        saveLocalDemo();
-        showStatus('Demo saved in this browser. Sign in for MySQL cloud saves.');
-        return;
-    }
+    const worlds = readStoredWorlds();
+    const now = new Date().toISOString();
+    const worldId = currentWorldId || `world-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const data = exportWorld();
+    const record = {
+        id: worldId,
+        name: cleanWorldName(dom.worldName.value),
+        seed: currentSeed,
+        block_count: data.blocks.length,
+        data,
+        updated_at: now,
+        created_at: worlds.find((world) => world.id === worldId)?.created_at || now,
+    };
 
-    try {
-        const response = await api('api/worlds.php', {
-            method: 'POST',
-            body: {
-                id: currentWorldId,
-                name: dom.worldName.value,
-                seed: currentSeed,
-                data: exportWorld(),
-            },
-        });
-        currentWorldId = response.world.id;
-        await loadWorldList();
-        dom.worldSelect.value = String(currentWorldId);
-        showStatus('World saved.');
-    } catch (error) {
-        showStatus(error.message, true);
-    }
+    const nextWorlds = [
+        record,
+        ...worlds.filter((world) => world.id !== worldId),
+    ].slice(0, 20);
+
+    localStorage.setItem('khalidcraft.worlds', JSON.stringify(nextWorlds));
+    currentWorldId = worldId;
+    dom.worldName.value = record.name;
+    await loadWorldList();
+    showStatus('World saved in this browser.');
 }
 
 async function loadSelectedWorld() {
-    const id = Number(dom.worldSelect.value);
+    const id = dom.worldSelect.value;
     if (!id) {
-        const local = loadLocalDemo();
-        if (local) {
-            importWorld(local);
-            showStatus('Loaded browser demo save.');
-        }
+        showStatus('Choose a saved world first.', true);
         return;
     }
 
-    try {
-        const response = await api(`api/world.php?id=${encodeURIComponent(id)}`);
-        importWorld(response.world);
-        showStatus('World loaded.');
-    } catch (error) {
-        showStatus(error.message, true);
+    const world = readStoredWorlds().find((item) => item.id === id);
+    if (!world) {
+        showStatus('Saved world was not found in this browser.', true);
+        await loadWorldList();
+        return;
     }
+
+    importWorld(world);
+    showStatus('World loaded from this browser.');
 }
 
 async function deleteSelectedWorld() {
-    const id = Number(dom.worldSelect.value);
+    const id = dom.worldSelect.value;
     if (!id) {
+        showStatus('Choose a saved world first.', true);
         return;
     }
 
-    try {
-        await api(`api/world.php?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-        if (currentWorldId === id) {
-            currentWorldId = null;
-        }
-        await loadWorldList();
-        showStatus('World deleted.');
-    } catch (error) {
-        showStatus(error.message, true);
+    const nextWorlds = readStoredWorlds().filter((world) => world.id !== id);
+    localStorage.setItem('khalidcraft.worlds', JSON.stringify(nextWorlds));
+
+    if (currentWorldId === id) {
+        currentWorldId = null;
     }
+
+    await loadWorldList();
+    showStatus('World deleted from this browser.');
 }
 
 function exportWorld() {
@@ -763,56 +720,45 @@ function importWorld(world) {
     rebuildMeshes();
 }
 
-function saveLocalDemo() {
-    localStorage.setItem('khalidcraft.demo', JSON.stringify({
-        id: null,
-        name: dom.worldName.value,
-        seed: currentSeed,
-        data: exportWorld(),
-    }));
-}
-
-function loadLocalDemo() {
-    const raw = localStorage.getItem('khalidcraft.demo');
+function readStoredWorlds() {
+    const raw = localStorage.getItem('khalidcraft.worlds');
     if (!raw) {
-        return null;
+        const legacy = localStorage.getItem('khalidcraft.demo');
+        if (!legacy) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(legacy);
+            const migrated = {
+                id: 'legacy-demo',
+                name: parsed.name || 'Khalid World',
+                seed: parsed.seed || parsed.data?.seed || currentSeed,
+                block_count: Array.isArray(parsed.data?.blocks) ? parsed.data.blocks.length : 0,
+                data: parsed.data || parsed,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+            localStorage.setItem('khalidcraft.worlds', JSON.stringify([migrated]));
+            localStorage.removeItem('khalidcraft.demo');
+            return [migrated];
+        } catch {
+            localStorage.removeItem('khalidcraft.demo');
+            return [];
+        }
     }
 
     try {
-        return JSON.parse(raw);
+        const worlds = JSON.parse(raw);
+        return Array.isArray(worlds) ? worlds : [];
     } catch {
-        return null;
+        return [];
     }
 }
 
-async function api(path, options = {}) {
-    const method = options.method || 'GET';
-    const headers = new Headers(options.headers || {});
-    headers.set('Accept', 'application/json');
-
-    const request = { method, headers };
-    if (method !== 'GET') {
-        headers.set('Content-Type', 'application/json');
-        headers.set('X-CSRF-Token', config.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content || '');
-        request.body = JSON.stringify(options.body || {});
-    }
-
-    const response = await fetch(url(path), request);
-    const body = await response.json().catch(() => ({}));
-    if (body.csrf_token) {
-        config.csrfToken = body.csrf_token;
-    }
-
-    if (!response.ok) {
-        throw new Error(body.error || 'Request failed.');
-    }
-
-    return body;
-}
-
-function url(path) {
-    const clean = String(path).replace(/^\/+/, '');
-    return config.baseUrl ? `${config.baseUrl}/${clean}` : clean;
+function cleanWorldName(name) {
+    const cleaned = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return cleaned || 'Khalid World';
 }
 
 function showStatus(message, isError = false, duration = 2800) {

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/app/bootstrap.php';
-
-use App\Auth;
-
-$config = kc_config();
-$user = Auth::user();
-$installed = (bool) ($config['installed'] ?? false);
-$appName = htmlspecialchars((string) ($config['app']['name'] ?? 'Khalid Craft'), ENT_QUOTES, 'UTF-8');
+$appNameRaw = 'Khalid Craft';
+$baseUrl = '';
+$appName = htmlspecialchars($appNameRaw, ENT_QUOTES, 'UTF-8');
 $assetUrl = static function (string $path): string {
-    return kc_public_path($path) . '?v=' . filemtime(__DIR__ . '/' . $path);
+    global $baseUrl;
+
+    $prefix = rtrim($baseUrl, '/');
+    $url = $prefix !== '' ? $prefix . '/' . ltrim($path, '/') : ltrim($path, '/');
+
+    return $url . '?v=' . filemtime(__DIR__ . '/' . $path);
 };
 $characters = [
     [
@@ -34,14 +34,12 @@ $cssPath = 'assets/css/app.css';
 $jsPath = 'assets/js/game.js';
 $cssUrl = $assetUrl($cssPath);
 $jsUrl = $assetUrl($jsPath);
-$csrf = kc_csrf_token();
 ?>
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
     <title><?= $appName ?></title>
     <link rel="preconnect" href="https://unpkg.com">
     <?php foreach ($characters as $character): ?>
@@ -50,11 +48,8 @@ $csrf = kc_csrf_token();
     <link rel="stylesheet" href="<?= htmlspecialchars($cssUrl, ENT_QUOTES, 'UTF-8') ?>">
     <script>
         window.KHALIDCRAFT = <?= json_encode([
-            'appName' => (string) ($config['app']['name'] ?? 'Khalid Craft'),
-            'baseUrl' => rtrim((string) ($config['app']['base_url'] ?? ''), '/'),
-            'installed' => $installed,
-            'user' => $user,
-            'csrfToken' => $csrf,
+            'appName' => $appNameRaw,
+            'baseUrl' => rtrim($baseUrl, '/'),
             'character' => $characters[0],
             'characters' => $characters,
         ], JSON_UNESCAPED_SLASHES) ?>;
@@ -69,39 +64,9 @@ $csrf = kc_csrf_token();
             </div>
 
             <div class="account" id="accountPanel">
-                <?php if ($user): ?>
-                    <span class="account-name"><?= htmlspecialchars((string) $user['username'], ENT_QUOTES, 'UTF-8') ?></span>
-                    <button class="button ghost" type="button" id="logoutButton" title="Log out">
-                        <i data-lucide="log-out" aria-hidden="true"></i>
-                        <span>Log out</span>
-                    </button>
-                <?php else: ?>
-                    <form class="auth-form" id="loginForm" autocomplete="on">
-                        <input name="login" type="text" placeholder="Username or email" autocomplete="username" <?= $installed ? '' : 'disabled' ?>>
-                        <input name="password" type="password" placeholder="Password" autocomplete="current-password" <?= $installed ? '' : 'disabled' ?>>
-                        <button class="button primary" type="submit" <?= $installed ? '' : 'disabled' ?>>
-                            <i data-lucide="log-in" aria-hidden="true"></i>
-                            <span>Log in</span>
-                        </button>
-                    </form>
-                    <form class="auth-form register" id="registerForm" autocomplete="on">
-                        <input name="username" type="text" placeholder="New username" autocomplete="username" <?= $installed ? '' : 'disabled' ?>>
-                        <input name="email" type="email" placeholder="Email optional" autocomplete="email" <?= $installed ? '' : 'disabled' ?>>
-                        <input name="password" type="password" placeholder="New password" autocomplete="new-password" <?= $installed ? '' : 'disabled' ?>>
-                        <button class="button secondary" type="submit" <?= $installed ? '' : 'disabled' ?>>
-                            <i data-lucide="user-plus" aria-hidden="true"></i>
-                            <span>Create</span>
-                        </button>
-                    </form>
-                <?php endif; ?>
+                <span class="account-name">Browser Play</span>
             </div>
         </header>
-
-        <?php if (!$installed): ?>
-            <div class="setup-banner" role="status">
-                MySQL is not configured yet. Demo play works now; accounts and cloud saves activate after `config/config.php` and `database/schema.sql` are installed.
-            </div>
-        <?php endif; ?>
 
         <section class="game-layout" aria-label="<?= $appName ?> game">
             <div class="world-panel">
@@ -115,13 +80,13 @@ $csrf = kc_csrf_token();
                     </button>
                 </div>
                 <div class="world-row">
-                    <select id="worldSelect" aria-label="Saved worlds" <?= $user ? '' : 'disabled' ?>>
+                    <select id="worldSelect" aria-label="Saved worlds">
                         <option value="">Saved worlds</option>
                     </select>
                     <button class="icon-button" id="loadWorldButton" type="button" title="Load world" aria-label="Load world">
                         <i data-lucide="folder-open" aria-hidden="true"></i>
                     </button>
-                    <button class="icon-button danger" id="deleteWorldButton" type="button" title="Delete world" aria-label="Delete world" <?= $user ? '' : 'disabled' ?>>
+                    <button class="icon-button danger" id="deleteWorldButton" type="button" title="Delete world" aria-label="Delete world">
                         <i data-lucide="trash-2" aria-hidden="true"></i>
                     </button>
                 </div>

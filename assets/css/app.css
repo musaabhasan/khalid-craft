@@ -48,7 +48,7 @@ select:disabled {
 
 .shell {
     display: grid;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto 1fr;
     width: 100vw;
     height: 100vh;
     min-height: 520px;
@@ -109,17 +109,6 @@ select:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.auth-form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.auth-form.register {
-    padding-left: 10px;
-    border-left: 1px solid var(--line);
 }
 
 input,
@@ -193,15 +182,6 @@ select option {
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
-}
-
-.setup-banner {
-    padding: 9px 16px;
-    border-bottom: 1px solid rgba(217, 164, 65, 0.45);
-    background: rgba(217, 164, 65, 0.16);
-    color: #ffe0a3;
-    font-size: 0.9rem;
-    z-index: 4;
 }
 
 .game-layout {
@@ -501,20 +481,10 @@ select option {
         flex-direction: column;
     }
 
-    .account,
-    .auth-form {
+    .account {
         width: 100%;
         flex-wrap: wrap;
         justify-content: flex-start;
-    }
-
-    .auth-form.register {
-        padding-left: 0;
-        border-left: 0;
-    }
-
-    .auth-form input {
-        flex: 1 1 150px;
     }
 
     .game-layout {
@@ -556,11 +526,6 @@ select option {
 
     .brand-name {
         font-size: 1rem;
-    }
-
-    .auth-form input,
-    .auth-form .button {
-        flex: 1 1 100%;
     }
 
     .palette {
