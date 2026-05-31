@@ -13,6 +13,7 @@ Khalid Craft is an original browser voxel sandbox built for simple shared hostin
 - Kid quest with stars, block-building goals, and celebration feedback
 - Character identities for Khalid, Omar, and 67 using included portrait assets
 - Moving blocky 3D companions in the world, including a funny bouncing 67 character
+- Automatic comedy scenes where Khalid and Omar shake hands, dance, chase 67, and make up after a silly tag moment
 - Starts with a simple password gate using password `6767`
 - Runs directly in the browser after password entry
 - Browser-only world save/load/delete with `localStorage`
