@@ -1,0 +1,742 @@
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+const config = window.KHALIDCRAFT || {};
+const dom = {
+    canvas: document.getElementById('gameCanvas'),
+    stage: document.getElementById('stage'),
+    palette: document.getElementById('palette'),
+    worldName: document.getElementById('worldName'),
+    worldSelect: document.getElementById('worldSelect'),
+    newWorld: document.getElementById('newWorldButton'),
+    saveWorld: document.getElementById('saveWorldButton'),
+    loadWorld: document.getElementById('loadWorldButton'),
+    deleteWorld: document.getElementById('deleteWorldButton'),
+    blockCount: document.getElementById('blockCount'),
+    selectedBlock: document.getElementById('selectedBlock'),
+    status: document.getElementById('statusPill'),
+    loginForm: document.getElementById('loginForm'),
+    registerForm: document.getElementById('registerForm'),
+    logoutButton: document.getElementById('logoutButton'),
+};
+
+const blockTypes = [
+    { id: 'grass', name: 'Grass', color: '#5ca84f', side: '#6f5134' },
+    { id: 'dirt', name: 'Dirt', color: '#7a5434' },
+    { id: 'stone', name: 'Stone', color: '#7f8588' },
+    { id: 'wood', name: 'Wood', color: '#8a5a32' },
+    { id: 'leaves', name: 'Leaves', color: '#3f8f46', transparent: true },
+    { id: 'sand', name: 'Sand', color: '#d8c783' },
+    { id: 'water', name: 'Water', color: '#3e9ed6', transparent: true },
+    { id: 'glass', name: 'Glass', color: '#a4d9e8', transparent: true },
+    { id: 'lamp', name: 'Lamp', color: '#f2c44b', emissive: true },
+    { id: 'brick', name: 'Brick', color: '#a75045' },
+];
+
+const blockById = new Map(blockTypes.map((block) => [block.id, block]));
+const blocks = new Map();
+const pressed = new Set();
+const mobileMoves = new Set();
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(0, 0);
+const cube = new THREE.BoxGeometry(1, 1, 1);
+const dummy = new THREE.Object3D();
+const clock = new THREE.Clock();
+const worldBounds = { min: -64, max: 64, minY: -16, maxY: 64 };
+
+let selectedType = 'grass';
+let currentWorldId = null;
+let currentSeed = makeSeed();
+let meshes = [];
+let lastTouch = null;
+
+const renderer = new THREE.WebGLRenderer({
+    canvas: dom.canvas,
+    antialias: true,
+    alpha: false,
+    powerPreference: 'high-performance',
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x80c5df);
+scene.fog = new THREE.Fog(0x80c5df, 32, 96);
+
+const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 240);
+camera.position.set(8, 9, 12);
+camera.lookAt(0, 3, 0);
+
+const controls = new PointerLockControls(camera, document.body);
+scene.add(controls.getObject());
+
+const sun = new THREE.DirectionalLight(0xfff0c2, 2.2);
+sun.position.set(24, 42, 18);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -48;
+sun.shadow.camera.right = 48;
+sun.shadow.camera.top = 48;
+sun.shadow.camera.bottom = -48;
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xbbe7ff, 0x3d3a32, 1.8));
+
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(500, 500),
+    new THREE.MeshStandardMaterial({ color: 0x48614a, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.52;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const materials = createMaterials();
+init();
+
+function init() {
+    buildPalette();
+    bindUi();
+    resize();
+    generateWorld(currentSeed);
+    loadWorldList();
+    showStatus(config.user ? 'Signed in. Cloud saves are ready.' : 'Demo mode. Sign in to save worlds.', false, 2200);
+    window.addEventListener('resize', resize);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', (event) => pressed.delete(event.code));
+    dom.canvas.addEventListener('click', onCanvasClick);
+    dom.canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    dom.canvas.addEventListener('pointerdown', onPointerDown);
+    dom.canvas.addEventListener('pointermove', onPointerMove);
+    dom.canvas.addEventListener('pointerup', () => {
+        lastTouch = null;
+    });
+    dom.canvas.addEventListener('pointercancel', () => {
+        lastTouch = null;
+    });
+    document.querySelectorAll('[data-move]').forEach((button) => {
+        const move = button.getAttribute('data-move');
+        button.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            mobileMoves.add(move);
+            button.setPointerCapture(event.pointerId);
+        });
+        button.addEventListener('pointerup', () => mobileMoves.delete(move));
+        button.addEventListener('pointercancel', () => mobileMoves.delete(move));
+        button.addEventListener('pointerleave', () => mobileMoves.delete(move));
+    });
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+    animate();
+}
+
+function createMaterials() {
+    const map = new Map();
+    for (const block of blockTypes) {
+        const texture = makeBlockTexture(block);
+        const materialOptions = {
+            map: texture,
+            roughness: 0.92,
+            metalness: 0,
+        };
+
+        if (block.transparent) {
+            materialOptions.transparent = true;
+            materialOptions.opacity = block.id === 'water' ? 0.58 : 0.82;
+            materialOptions.depthWrite = block.id !== 'water';
+        }
+
+        if (block.emissive) {
+            materialOptions.emissive = new THREE.Color(0xf0b83f);
+            materialOptions.emissiveIntensity = 0.65;
+        }
+
+        map.set(block.id, new THREE.MeshStandardMaterial(materialOptions));
+    }
+
+    return map;
+}
+
+function makeBlockTexture(block) {
+    const size = 64;
+    const textureCanvas = document.createElement('canvas');
+    textureCanvas.width = size;
+    textureCanvas.height = size;
+    const ctx = textureCanvas.getContext('2d');
+    ctx.fillStyle = block.color;
+    ctx.fillRect(0, 0, size, size);
+
+    if (block.id === 'grass') {
+        ctx.fillStyle = block.side;
+        ctx.fillRect(0, 34, size, 30);
+        ctx.fillStyle = '#67bb58';
+        ctx.fillRect(0, 0, size, 26);
+    }
+
+    if (block.id === 'brick') {
+        ctx.strokeStyle = 'rgba(60, 25, 20, 0.45)';
+        ctx.lineWidth = 3;
+        for (let y = 16; y < size; y += 16) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(size, y);
+            ctx.stroke();
+        }
+        for (let x = 0; x < size; x += 24) {
+            ctx.beginPath();
+            ctx.moveTo(x + 12, 0);
+            ctx.lineTo(x + 12, size);
+            ctx.stroke();
+        }
+    }
+
+    const speckles = block.id === 'glass' || block.id === 'water' ? 45 : 110;
+    for (let i = 0; i < speckles; i += 1) {
+        const x = Math.floor(rand(i + block.id.length) * size);
+        const y = Math.floor(rand(i * 7 + block.id.length) * size);
+        const alpha = block.id === 'lamp' ? 0.16 : 0.22;
+        ctx.fillStyle = i % 2 === 0 ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`;
+        ctx.fillRect(x, y, 3, 3);
+    }
+
+    const texture = new THREE.CanvasTexture(textureCanvas);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestMipmapNearestFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+}
+
+function buildPalette() {
+    dom.palette.innerHTML = '';
+    for (const block of blockTypes) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `block-button${block.id === selectedType ? ' active' : ''}`;
+        button.style.setProperty('--swatch', block.color);
+        button.title = block.name;
+        button.setAttribute('aria-label', block.name);
+        button.dataset.block = block.id;
+        button.addEventListener('click', () => selectBlock(block.id));
+        dom.palette.appendChild(button);
+    }
+}
+
+function bindUi() {
+    dom.newWorld.addEventListener('click', () => {
+        currentWorldId = null;
+        currentSeed = makeSeed();
+        dom.worldName.value = 'Khalid World';
+        generateWorld(currentSeed);
+        showStatus('New world generated.');
+    });
+
+    dom.saveWorld.addEventListener('click', saveWorld);
+    dom.loadWorld.addEventListener('click', loadSelectedWorld);
+    dom.deleteWorld.addEventListener('click', deleteSelectedWorld);
+
+    dom.loginForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = new FormData(dom.loginForm);
+        await submitAuth('api/login.php', {
+            login: form.get('login'),
+            password: form.get('password'),
+        });
+    });
+
+    dom.registerForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = new FormData(dom.registerForm);
+        await submitAuth('api/register.php', {
+            username: form.get('username'),
+            email: form.get('email'),
+            password: form.get('password'),
+        });
+    });
+
+    dom.logoutButton?.addEventListener('click', async () => {
+        try {
+            await api('api/logout.php', { method: 'POST', body: {} });
+            window.location.reload();
+        } catch (error) {
+            showStatus(error.message, true);
+        }
+    });
+}
+
+async function submitAuth(path, payload) {
+    try {
+        await api(path, { method: 'POST', body: payload });
+        window.location.reload();
+    } catch (error) {
+        showStatus(error.message, true);
+    }
+}
+
+function selectBlock(type) {
+    selectedType = type;
+    dom.selectedBlock.textContent = blockById.get(type)?.name || type;
+    dom.palette.querySelectorAll('.block-button').forEach((button) => {
+        button.classList.toggle('active', button.dataset.block === type);
+    });
+}
+
+function generateWorld(seed) {
+    blocks.clear();
+    const seedNumber = seedToNumber(seed);
+
+    for (let x = -18; x <= 18; x += 1) {
+        for (let z = -18; z <= 18; z += 1) {
+            const ridge = Math.sin((x + seedNumber) * 0.28) + Math.cos((z - seedNumber) * 0.24);
+            const detail = rand2(x, z, seedNumber) * 2.2;
+            const height = Math.max(1, Math.floor(2 + ridge + detail));
+
+            for (let y = 0; y <= height; y += 1) {
+                const type = y === height ? 'grass' : y > height - 3 ? 'dirt' : 'stone';
+                setBlock(x, y, z, type, false);
+            }
+
+            if (height <= 2 && rand2(x + 60, z - 44, seedNumber) > 0.72) {
+                setBlock(x, height + 1, z, 'sand', false);
+            }
+
+            if (height <= 1 && rand2(x - 20, z + 12, seedNumber) > 0.76) {
+                setBlock(x, height + 1, z, 'water', false);
+            }
+
+            if (height >= 3 && rand2(x + 12, z - 19, seedNumber) > 0.985) {
+                addTree(x, height + 1, z);
+            }
+        }
+    }
+
+    camera.position.set(8, 9, 12);
+    camera.lookAt(0, 3, 0);
+    rebuildMeshes();
+}
+
+function addTree(x, y, z) {
+    for (let trunk = 0; trunk < 4; trunk += 1) {
+        setBlock(x, y + trunk, z, 'wood', false);
+    }
+
+    for (let ix = -2; ix <= 2; ix += 1) {
+        for (let iy = 2; iy <= 4; iy += 1) {
+            for (let iz = -2; iz <= 2; iz += 1) {
+                if (Math.abs(ix) + Math.abs(iz) + (iy === 4 ? 1 : 0) < 5) {
+                    setBlock(x + ix, y + iy, z + iz, 'leaves', false);
+                }
+            }
+        }
+    }
+}
+
+function setBlock(x, y, z, type, rebuild = true) {
+    if (!isInsideBounds(x, y, z) || !blockById.has(type)) {
+        return false;
+    }
+
+    blocks.set(keyOf(x, y, z), type);
+    if (rebuild) {
+        rebuildMeshes();
+    }
+
+    return true;
+}
+
+function removeBlock(key) {
+    if (blocks.delete(key)) {
+        rebuildMeshes();
+    }
+}
+
+function rebuildMeshes() {
+    for (const mesh of meshes) {
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+    }
+    meshes = [];
+
+    const groups = new Map();
+    for (const [key, type] of blocks.entries()) {
+        if (!groups.has(type)) {
+            groups.set(type, []);
+        }
+        groups.get(type).push(key);
+    }
+
+    for (const [type, keys] of groups.entries()) {
+        const geometry = cube.clone();
+        const mesh = new THREE.InstancedMesh(geometry, materials.get(type), keys.length);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.keys = keys;
+        mesh.userData.type = type;
+
+        keys.forEach((key, index) => {
+            const [x, y, z] = parseKey(key);
+            dummy.position.set(x + 0.5, y + 0.5, z + 0.5);
+            dummy.updateMatrix();
+            mesh.setMatrixAt(index, dummy.matrix);
+        });
+
+        mesh.instanceMatrix.needsUpdate = true;
+        scene.add(mesh);
+        meshes.push(mesh);
+    }
+
+    dom.blockCount.textContent = `${blocks.size.toLocaleString()} blocks`;
+}
+
+function onCanvasClick(event) {
+    if (event.button !== 0) {
+        return;
+    }
+
+    if (!controls.isLocked && event.pointerType !== 'touch') {
+        controls.lock();
+        return;
+    }
+
+    const hit = getHit();
+    if (!hit) {
+        return;
+    }
+
+    if (event.shiftKey || pressed.has('AltLeft') || pressed.has('AltRight')) {
+        removeBlock(hit.key);
+        return;
+    }
+
+    const [x, y, z] = parseKey(hit.key);
+    const normal = hit.face.normal;
+    const nx = x + Math.round(normal.x);
+    const ny = y + Math.round(normal.y);
+    const nz = z + Math.round(normal.z);
+
+    if (!blocks.has(keyOf(nx, ny, nz))) {
+        setBlock(nx, ny, nz, selectedType);
+    }
+}
+
+function onPointerDown(event) {
+    if (event.pointerType === 'touch') {
+        lastTouch = { x: event.clientX, y: event.clientY };
+        dom.canvas.setPointerCapture(event.pointerId);
+    }
+}
+
+function onPointerMove(event) {
+    if (event.pointerType !== 'touch' || !lastTouch) {
+        return;
+    }
+
+    const dx = event.clientX - lastTouch.x;
+    const dy = event.clientY - lastTouch.y;
+    lastTouch = { x: event.clientX, y: event.clientY };
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y -= dx * 0.004;
+    camera.rotation.x -= dy * 0.004;
+    camera.rotation.x = Math.max(-Math.PI / 2 + 0.04, Math.min(Math.PI / 2 - 0.04, camera.rotation.x));
+}
+
+function getHit() {
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.far = 8;
+    const hits = raycaster.intersectObjects(meshes, false);
+    const hit = hits.find((item) => item.instanceId !== undefined);
+    if (!hit) {
+        return null;
+    }
+
+    return {
+        key: hit.object.userData.keys[hit.instanceId],
+        face: hit.face,
+    };
+}
+
+function onKeyDown(event) {
+    pressed.add(event.code);
+
+    if (/^Digit\d$/.test(event.code)) {
+        const index = Number(event.code.replace('Digit', '')) - 1;
+        if (blockTypes[index]) {
+            selectBlock(blockTypes[index].id);
+        }
+    }
+
+    if (event.code === 'KeyF') {
+        const hit = getHit();
+        if (hit) {
+            removeBlock(hit.key);
+        }
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.05);
+    updateMovement(delta);
+    renderer.render(scene, camera);
+}
+
+function updateMovement(delta) {
+    const speed = pressed.has('ShiftLeft') || pressed.has('ShiftRight') ? 15 : 8;
+    const direction = new THREE.Vector3();
+    const forward = Number(pressed.has('KeyW') || mobileMoves.has('forward')) - Number(pressed.has('KeyS') || mobileMoves.has('back'));
+    const right = Number(pressed.has('KeyD') || mobileMoves.has('right')) - Number(pressed.has('KeyA') || mobileMoves.has('left'));
+    const up = Number(pressed.has('Space') || mobileMoves.has('up')) - Number(pressed.has('ControlLeft') || pressed.has('KeyC') || mobileMoves.has('down'));
+
+    direction.set(right, 0, -forward);
+    if (direction.lengthSq() > 0) {
+        direction.normalize();
+        direction.applyQuaternion(camera.quaternion);
+        direction.y = 0;
+        if (direction.lengthSq() > 0) {
+            direction.normalize();
+            camera.position.addScaledVector(direction, speed * delta);
+        }
+    }
+
+    if (up !== 0) {
+        camera.position.y += up * speed * delta;
+    }
+
+    camera.position.x = clamp(camera.position.x, worldBounds.min + 1, worldBounds.max - 1);
+    camera.position.y = clamp(camera.position.y, 2, worldBounds.maxY);
+    camera.position.z = clamp(camera.position.z, worldBounds.min + 1, worldBounds.max - 1);
+}
+
+function resize() {
+    const rect = dom.stage.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+}
+
+async function loadWorldList() {
+    if (!config.user) {
+        return;
+    }
+
+    try {
+        const response = await api('api/worlds.php');
+        dom.worldSelect.innerHTML = '<option value="">Saved worlds</option>';
+        for (const world of response.worlds || []) {
+            const option = document.createElement('option');
+            option.value = String(world.id);
+            option.textContent = `${world.name} (${world.block_count})`;
+            dom.worldSelect.appendChild(option);
+        }
+    } catch (error) {
+        showStatus(error.message, true);
+    }
+}
+
+async function saveWorld() {
+    if (!config.user) {
+        saveLocalDemo();
+        showStatus('Demo saved in this browser. Sign in for MySQL cloud saves.');
+        return;
+    }
+
+    try {
+        const response = await api('api/worlds.php', {
+            method: 'POST',
+            body: {
+                id: currentWorldId,
+                name: dom.worldName.value,
+                seed: currentSeed,
+                data: exportWorld(),
+            },
+        });
+        currentWorldId = response.world.id;
+        await loadWorldList();
+        dom.worldSelect.value = String(currentWorldId);
+        showStatus('World saved.');
+    } catch (error) {
+        showStatus(error.message, true);
+    }
+}
+
+async function loadSelectedWorld() {
+    const id = Number(dom.worldSelect.value);
+    if (!id) {
+        const local = loadLocalDemo();
+        if (local) {
+            importWorld(local);
+            showStatus('Loaded browser demo save.');
+        }
+        return;
+    }
+
+    try {
+        const response = await api(`api/world.php?id=${encodeURIComponent(id)}`);
+        importWorld(response.world);
+        showStatus('World loaded.');
+    } catch (error) {
+        showStatus(error.message, true);
+    }
+}
+
+async function deleteSelectedWorld() {
+    const id = Number(dom.worldSelect.value);
+    if (!id) {
+        return;
+    }
+
+    try {
+        await api(`api/world.php?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (currentWorldId === id) {
+            currentWorldId = null;
+        }
+        await loadWorldList();
+        showStatus('World deleted.');
+    } catch (error) {
+        showStatus(error.message, true);
+    }
+}
+
+function exportWorld() {
+    const exportedBlocks = Array.from(blocks.entries())
+        .map(([key, type]) => [...parseKey(key), type])
+        .sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1]);
+
+    return {
+        version: 1,
+        seed: currentSeed,
+        camera: {
+            x: Number(camera.position.x.toFixed(2)),
+            y: Number(camera.position.y.toFixed(2)),
+            z: Number(camera.position.z.toFixed(2)),
+        },
+        blocks: exportedBlocks,
+    };
+}
+
+function importWorld(world) {
+    const data = world.data || world;
+    currentWorldId = world.id || null;
+    currentSeed = world.seed || data.seed || makeSeed();
+    dom.worldName.value = world.name || 'Khalid World';
+    blocks.clear();
+
+    for (const block of data.blocks || []) {
+        const [x, y, z, type] = block;
+        if (Number.isInteger(x) && Number.isInteger(y) && Number.isInteger(z) && blockById.has(type)) {
+            setBlock(x, y, z, type, false);
+        }
+    }
+
+    if (data.camera) {
+        camera.position.set(
+            Number(data.camera.x) || 8,
+            Number(data.camera.y) || 9,
+            Number(data.camera.z) || 12
+        );
+    }
+
+    rebuildMeshes();
+}
+
+function saveLocalDemo() {
+    localStorage.setItem('khalidcraft.demo', JSON.stringify({
+        id: null,
+        name: dom.worldName.value,
+        seed: currentSeed,
+        data: exportWorld(),
+    }));
+}
+
+function loadLocalDemo() {
+    const raw = localStorage.getItem('khalidcraft.demo');
+    if (!raw) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+async function api(path, options = {}) {
+    const method = options.method || 'GET';
+    const headers = new Headers(options.headers || {});
+    headers.set('Accept', 'application/json');
+
+    const request = { method, headers };
+    if (method !== 'GET') {
+        headers.set('Content-Type', 'application/json');
+        headers.set('X-CSRF-Token', config.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content || '');
+        request.body = JSON.stringify(options.body || {});
+    }
+
+    const response = await fetch(url(path), request);
+    const body = await response.json().catch(() => ({}));
+    if (body.csrf_token) {
+        config.csrfToken = body.csrf_token;
+    }
+
+    if (!response.ok) {
+        throw new Error(body.error || 'Request failed.');
+    }
+
+    return body;
+}
+
+function url(path) {
+    const clean = String(path).replace(/^\/+/, '');
+    return config.baseUrl ? `${config.baseUrl}/${clean}` : clean;
+}
+
+function showStatus(message, isError = false, duration = 2800) {
+    dom.status.textContent = message;
+    dom.status.classList.toggle('error', isError);
+    dom.status.classList.add('show');
+    window.clearTimeout(showStatus.timer);
+    showStatus.timer = window.setTimeout(() => {
+        dom.status.classList.remove('show');
+    }, duration);
+}
+
+function keyOf(x, y, z) {
+    return `${x},${y},${z}`;
+}
+
+function parseKey(key) {
+    return key.split(',').map(Number);
+}
+
+function isInsideBounds(x, y, z) {
+    return x >= worldBounds.min && x <= worldBounds.max
+        && z >= worldBounds.min && z <= worldBounds.max
+        && y >= worldBounds.minY && y <= worldBounds.maxY;
+}
+
+function rand(value) {
+    return fract(Math.sin(value * 127.1 + 311.7) * 43758.5453123);
+}
+
+function rand2(x, z, seed) {
+    return fract(Math.sin(x * 12.9898 + z * 78.233 + seed * 37.719) * 43758.5453);
+}
+
+function fract(value) {
+    return value - Math.floor(value);
+}
+
+function seedToNumber(seed) {
+    return String(seed).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) || 1;
+}
+
+function makeSeed() {
+    return Math.random().toString(36).slice(2, 10);
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
