@@ -31,12 +31,17 @@ body {
 
 button,
 input,
-select {
+select,
+a.button {
     font: inherit;
 }
 
 button {
     cursor: pointer;
+}
+
+a.button {
+    text-decoration: none;
 }
 
 button:disabled,
@@ -56,6 +61,56 @@ select:disabled {
         linear-gradient(180deg, rgba(95, 158, 139, 0.18), transparent 34%),
         linear-gradient(120deg, rgba(217, 164, 65, 0.12), transparent 42%),
         var(--bg);
+}
+
+.lock-shell {
+    display: grid;
+    place-items: center;
+    width: 100vw;
+    min-height: 100vh;
+    padding: 24px;
+    background:
+        linear-gradient(180deg, rgba(95, 158, 139, 0.18), transparent 34%),
+        linear-gradient(120deg, rgba(217, 164, 65, 0.12), transparent 42%),
+        var(--bg);
+}
+
+.lock-panel {
+    width: min(420px, 100%);
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(15, 18, 20, 0.9);
+    box-shadow: var(--shadow);
+}
+
+.lock-brand {
+    margin-bottom: 18px;
+}
+
+.password-form {
+    display: grid;
+    gap: 10px;
+}
+
+.password-form label {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.password-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.password-error {
+    margin: 2px 0 0;
+    color: #ffb8b2;
+    font-size: 0.9rem;
 }
 
 .topbar {

@@ -2,6 +2,39 @@
 
 declare(strict_types=1);
 
+const KC_GAME_PASSWORD = '6767';
+
+$secureCookie = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+session_name('KHALIDCRAFTGATE');
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => $secureCookie,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+
+if (isset($_GET['lock'])) {
+    $_SESSION['game_unlocked'] = false;
+    header('Location: index.php');
+    exit;
+}
+
+$gateError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $password = (string) ($_POST['game_password'] ?? '');
+    if (hash_equals(KC_GAME_PASSWORD, $password)) {
+        session_regenerate_id(true);
+        $_SESSION['game_unlocked'] = true;
+        header('Location: index.php');
+        exit;
+    }
+
+    $gateError = 'Wrong password.';
+}
+
+$gameUnlocked = !empty($_SESSION['game_unlocked']);
 $appNameRaw = 'Khalid Craft';
 $baseUrl = '';
 $appName = htmlspecialchars($appNameRaw, ENT_QUOTES, 'UTF-8');
@@ -42,20 +75,53 @@ $jsUrl = $assetUrl($jsPath);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $appName ?></title>
     <link rel="preconnect" href="https://unpkg.com">
-    <?php foreach ($characters as $character): ?>
-        <link rel="preload" href="<?= htmlspecialchars($character['image'], ENT_QUOTES, 'UTF-8') ?>" as="image">
-    <?php endforeach; ?>
+    <?php if ($gameUnlocked): ?>
+        <?php foreach ($characters as $character): ?>
+            <link rel="preload" href="<?= htmlspecialchars($character['image'], ENT_QUOTES, 'UTF-8') ?>" as="image">
+        <?php endforeach; ?>
+    <?php endif; ?>
     <link rel="stylesheet" href="<?= htmlspecialchars($cssUrl, ENT_QUOTES, 'UTF-8') ?>">
-    <script>
-        window.KHALIDCRAFT = <?= json_encode([
-            'appName' => $appNameRaw,
-            'baseUrl' => rtrim($baseUrl, '/'),
-            'character' => $characters[0],
-            'characters' => $characters,
-        ], JSON_UNESCAPED_SLASHES) ?>;
-    </script>
+    <?php if ($gameUnlocked): ?>
+        <script>
+            window.KHALIDCRAFT = <?= json_encode([
+                'appName' => $appNameRaw,
+                'baseUrl' => rtrim($baseUrl, '/'),
+                'character' => $characters[0],
+                'characters' => $characters,
+            ], JSON_UNESCAPED_SLASHES) ?>;
+        </script>
+    <?php endif; ?>
 </head>
 <body>
+    <?php if (!$gameUnlocked): ?>
+        <main class="lock-shell">
+            <section class="lock-panel" aria-label="Enter Khalid Craft">
+                <div class="brand lock-brand" aria-label="<?= $appName ?>">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span class="brand-name"><?= $appName ?></span>
+                </div>
+                <form class="password-form" method="post" autocomplete="off">
+                    <label for="gamePassword">Password</label>
+                    <div class="password-row">
+                        <input id="gamePassword" name="game_password" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12" autofocus required>
+                        <button class="button primary" type="submit">
+                            <i data-lucide="log-in" aria-hidden="true"></i>
+                            <span>Enter</span>
+                        </button>
+                    </div>
+                    <?php if ($gateError !== ''): ?>
+                        <p class="password-error" role="alert"><?= htmlspecialchars($gateError, ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php endif; ?>
+                </form>
+            </section>
+        </main>
+        <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+        <script>
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        </script>
+    <?php else: ?>
     <main class="shell">
         <header class="topbar">
             <div class="brand" aria-label="<?= $appName ?>">
@@ -65,6 +131,10 @@ $jsUrl = $assetUrl($jsPath);
 
             <div class="account" id="accountPanel">
                 <span class="account-name">Browser Play</span>
+                <a class="button ghost" href="?lock=1" title="Lock game">
+                    <i data-lucide="lock" aria-hidden="true"></i>
+                    <span>Lock</span>
+                </a>
             </div>
         </header>
 
@@ -135,5 +205,6 @@ $jsUrl = $assetUrl($jsPath);
         }
     </script>
     <script type="module" src="<?= htmlspecialchars($jsUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
+    <?php endif; ?>
 </body>
 </html>
