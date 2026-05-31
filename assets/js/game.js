@@ -25,6 +25,11 @@ const dom = {
     blockCount: document.getElementById('blockCount'),
     selectedBlock: document.getElementById('selectedBlock'),
     status: document.getElementById('statusPill'),
+    starCount: document.getElementById('starCount'),
+    buildCount: document.getElementById('buildCount'),
+    questText: document.getElementById('questText'),
+    celebration: document.getElementById('celebration'),
+    questReset: document.getElementById('questResetButton'),
 };
 
 const blockTypes = [
@@ -47,9 +52,18 @@ const mobileMoves = new Set();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2(0, 0);
 const cube = new THREE.BoxGeometry(1, 1, 1);
+const starGeometry = new THREE.OctahedronGeometry(0.42, 0);
 const dummy = new THREE.Object3D();
 const clock = new THREE.Clock();
 const worldBounds = { min: -64, max: 64, minY: -16, maxY: 64 };
+const quest = {
+    starGoal: 5,
+    buildGoal: 5,
+    collected: 0,
+    built: 0,
+    stars: [],
+    completed: false,
+};
 
 let selectedType = 'grass';
 let currentWorldId = null;
@@ -99,6 +113,13 @@ ground.receiveShadow = true;
 scene.add(ground);
 
 const materials = createMaterials();
+const starMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffdc4a,
+    emissive: 0xffb800,
+    emissiveIntensity: 1.2,
+    roughness: 0.35,
+    metalness: 0.1,
+});
 init();
 
 function init() {
@@ -107,9 +128,10 @@ function init() {
     resize();
     generateWorld(currentSeed);
     createCharacterAvatars();
+    startKidQuest();
     loadWorldList();
     const roster = characters.map((item) => item.name).join(' and ');
-    showStatus(`${roster} are ready. Worlds save in this browser.`, false, 2200);
+    showStatus(`${roster} are ready. Have fun!`, false, 2200);
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', () => window.setTimeout(resize, 250));
     window.visualViewport?.addEventListener('resize', resize);
@@ -350,12 +372,17 @@ function bindUi() {
         dom.worldName.value = 'Khalid World';
         dom.worldSelect.value = '';
         generateWorld(currentSeed);
-        showStatus('New world generated.');
+        startKidQuest();
+        showStatus('New adventure!');
     });
 
     dom.saveWorld.addEventListener('click', saveWorld);
     dom.loadWorld.addEventListener('click', loadSelectedWorld);
     dom.deleteWorld.addEventListener('click', deleteSelectedWorld);
+    dom.questReset.addEventListener('click', () => {
+        startKidQuest();
+        showStatus('New quest!');
+    });
 }
 
 function selectBlock(type) {
@@ -500,7 +527,12 @@ function onCanvasClick(event) {
     const nz = z + Math.round(normal.z);
 
     if (!blocks.has(keyOf(nx, ny, nz))) {
-        setBlock(nx, ny, nz, selectedType);
+        if (setBlock(nx, ny, nz, selectedType)) {
+            quest.built = Math.min(quest.buildGoal, quest.built + 1);
+            updateQuestUI();
+            playKidTone(520, 0.08);
+            checkQuestComplete();
+        }
     }
 }
 
@@ -564,6 +596,7 @@ function animate() {
     requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.05);
     updateMovement(delta);
+    updateStars(delta);
     renderer.render(scene, camera);
 }
 
@@ -643,31 +676,32 @@ async function saveWorld() {
     currentWorldId = worldId;
     dom.worldName.value = record.name;
     await loadWorldList();
-    showStatus('World saved in this browser.');
+    showStatus('Saved!');
 }
 
 async function loadSelectedWorld() {
     const id = dom.worldSelect.value;
     if (!id) {
-        showStatus('Choose a saved world first.', true);
+        showStatus('Pick a world first.', true);
         return;
     }
 
     const world = readStoredWorlds().find((item) => item.id === id);
     if (!world) {
-        showStatus('Saved world was not found in this browser.', true);
+        showStatus('World not found.', true);
         await loadWorldList();
         return;
     }
 
     importWorld(world);
-    showStatus('World loaded from this browser.');
+    startKidQuest();
+    showStatus('Loaded!');
 }
 
 async function deleteSelectedWorld() {
     const id = dom.worldSelect.value;
     if (!id) {
-        showStatus('Choose a saved world first.', true);
+        showStatus('Pick a world first.', true);
         return;
     }
 
@@ -679,7 +713,7 @@ async function deleteSelectedWorld() {
     }
 
     await loadWorldList();
-    showStatus('World deleted from this browser.');
+    showStatus('Removed.');
 }
 
 function exportWorld() {
@@ -722,6 +756,146 @@ function importWorld(world) {
     }
 
     rebuildMeshes();
+}
+
+function startKidQuest() {
+    clearStars();
+    quest.collected = 0;
+    quest.built = 0;
+    quest.completed = false;
+    dom.celebration.classList.remove('show');
+    dom.celebration.textContent = '';
+    spawnStars();
+    updateQuestUI();
+}
+
+function clearStars() {
+    for (const star of quest.stars) {
+        scene.remove(star);
+    }
+    quest.stars = [];
+}
+
+function spawnStars() {
+    const seedNumber = seedToNumber(currentSeed);
+    const positions = [
+        [-5, -2],
+        [-1, -7],
+        [5, -4],
+        [-7, 5],
+        [4, 6],
+    ];
+
+    positions.forEach(([baseX, baseZ], index) => {
+        const wiggleX = Math.round((rand(seedNumber + index * 9) - 0.5) * 3);
+        const wiggleZ = Math.round((rand(seedNumber + index * 13) - 0.5) * 3);
+        const x = baseX + wiggleX;
+        const z = baseZ + wiggleZ;
+        const y = findSurfaceY(x, z) + 2.1;
+        const star = new THREE.Mesh(starGeometry, starMaterial);
+        star.position.set(x + 0.5, y, z + 0.5);
+        star.castShadow = false;
+        star.userData.baseY = y;
+        star.userData.phase = index * 0.8;
+        star.userData.collected = false;
+        scene.add(star);
+        quest.stars.push(star);
+    });
+}
+
+function findSurfaceY(x, z) {
+    for (let y = worldBounds.maxY; y >= worldBounds.minY; y -= 1) {
+        if (blocks.has(keyOf(x, y, z))) {
+            return y + 1;
+        }
+    }
+
+    return 3;
+}
+
+function updateStars(delta) {
+    const elapsed = clock.elapsedTime;
+    for (const star of quest.stars) {
+        if (star.userData.collected) {
+            continue;
+        }
+
+        star.rotation.x += delta * 1.6;
+        star.rotation.y += delta * 2.4;
+        star.position.y = star.userData.baseY + Math.sin(elapsed * 2 + star.userData.phase) * 0.18;
+
+        if (camera.position.distanceTo(star.position) < 2.25) {
+            collectStar(star);
+        }
+    }
+}
+
+function collectStar(star) {
+    star.userData.collected = true;
+    scene.remove(star);
+    quest.collected = Math.min(quest.starGoal, quest.collected + 1);
+    updateQuestUI();
+    showStatus('Star found!');
+    playKidTone(740, 0.1);
+    checkQuestComplete();
+}
+
+function updateQuestUI() {
+    dom.starCount.textContent = `${quest.collected}/${quest.starGoal}`;
+    dom.buildCount.textContent = `${quest.built}/${quest.buildGoal}`;
+
+    const starsLeft = quest.starGoal - quest.collected;
+    const blocksLeft = quest.buildGoal - quest.built;
+    if (starsLeft > 0 && blocksLeft > 0) {
+        dom.questText.textContent = `Find ${starsLeft} stars and place ${blocksLeft} blocks.`;
+    } else if (starsLeft > 0) {
+        dom.questText.textContent = `Find ${starsLeft} more stars.`;
+    } else if (blocksLeft > 0) {
+        dom.questText.textContent = `Place ${blocksLeft} more blocks.`;
+    } else {
+        dom.questText.textContent = 'Quest complete. Great job!';
+    }
+
+    document.documentElement.dataset.kidQuest = quest.completed ? 'complete' : 'playing';
+}
+
+function checkQuestComplete() {
+    if (quest.completed || quest.collected < quest.starGoal || quest.built < quest.buildGoal) {
+        return;
+    }
+
+    quest.completed = true;
+    document.documentElement.dataset.kidQuest = 'complete';
+    dom.celebration.textContent = 'Great job!';
+    dom.celebration.classList.add('show');
+    playKidTone(880, 0.12);
+    window.setTimeout(() => playKidTone(1040, 0.16), 140);
+    window.setTimeout(() => dom.celebration.classList.remove('show'), 3200);
+}
+
+function playKidTone(frequency, duration) {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) {
+            return;
+        }
+
+        const context = playKidTone.context || new AudioContext();
+        playKidTone.context = context;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.06, context.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + duration + 0.02);
+    } catch {
+        // Sound is optional; browsers may block it until a direct gesture.
+    }
 }
 
 function readStoredWorlds() {

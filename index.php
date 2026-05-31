@@ -160,6 +160,29 @@ $jsUrl = $assetUrl($jsPath);
                         <i data-lucide="trash-2" aria-hidden="true"></i>
                     </button>
                 </div>
+                <div class="kid-panel" aria-label="Kid quest">
+                    <div class="kid-panel-head">
+                        <span class="kid-panel-title">
+                            <i data-lucide="sparkles" aria-hidden="true"></i>
+                            Quest
+                        </span>
+                        <button class="button secondary kid-reset" id="questResetButton" type="button">
+                            <i data-lucide="refresh-cw" aria-hidden="true"></i>
+                            <span>New</span>
+                        </button>
+                    </div>
+                    <div class="kid-score-row">
+                        <span class="kid-score">
+                            <i data-lucide="star" aria-hidden="true"></i>
+                            <strong id="starCount">0/5</strong>
+                        </span>
+                        <span class="kid-score">
+                            <i data-lucide="blocks" aria-hidden="true"></i>
+                            <strong id="buildCount">0/5</strong>
+                        </span>
+                    </div>
+                    <p class="kid-quest-text" id="questText">Find stars and build something happy.</p>
+                </div>
                 <div class="character-list" aria-label="Characters">
                     <?php foreach ($characters as $character): ?>
                         <div class="character-card" aria-label="<?= htmlspecialchars($character['role'] . ' ' . $character['name'], ENT_QUOTES, 'UTF-8') ?>">
@@ -178,6 +201,7 @@ $jsUrl = $assetUrl($jsPath);
                 <canvas id="gameCanvas"></canvas>
                 <div class="reticle" aria-hidden="true"></div>
                 <div class="status-pill" id="statusPill" role="status"></div>
+                <div class="celebration" id="celebration" role="status" aria-live="polite"></div>
                 <div class="stats" aria-live="polite">
                     <span id="characterName"><?= htmlspecialchars($characterNames, ENT_QUOTES, 'UTF-8') ?></span>
                     <span id="blockCount">0 blocks</span>
