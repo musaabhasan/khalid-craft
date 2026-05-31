@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const config = window.KHALIDCRAFT || {};
+const character = {
+    name: config.character?.name || 'Khalid',
+    image: config.character?.image || 'assets/img/khalid-main-character.png',
+};
 const dom = {
     canvas: document.getElementById('gameCanvas'),
     stage: document.getElementById('stage'),
@@ -99,8 +103,9 @@ function init() {
     bindUi();
     resize();
     generateWorld(currentSeed);
+    createCharacterAvatar();
     loadWorldList();
-    showStatus(config.user ? 'Signed in. Cloud saves are ready.' : 'Demo mode. Sign in to save worlds.', false, 2200);
+    showStatus(config.user ? `${character.name} is signed in. Cloud saves are ready.` : `${character.name} is ready. Sign in to save worlds.`, false, 2200);
     window.addEventListener('resize', resize);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', (event) => pressed.delete(event.code));
@@ -156,6 +161,96 @@ function createMaterials() {
     }
 
     return map;
+}
+
+function createCharacterAvatar() {
+    const group = new THREE.Group();
+    group.name = `${character.name} Avatar`;
+    group.position.set(0, 5.7, 0);
+    document.documentElement.dataset.khalidAvatar = 'loading';
+
+    const loader = new THREE.TextureLoader();
+    loader.load(character.image, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+        }));
+        sprite.name = character.name;
+        sprite.renderOrder = 20;
+        sprite.scale.set(3.2, 4.3, 1);
+        group.add(sprite);
+        document.documentElement.dataset.khalidAvatar = 'ready';
+        window.__KHALIDCRAFT_AVATAR_READY = true;
+    }, undefined, () => {
+        document.documentElement.dataset.khalidAvatar = 'error';
+    });
+
+    const label = makeTextSprite(character.name);
+    label.position.set(0, 2.45, 0);
+    group.add(label);
+
+    const pedestal = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.45, 1.45, 0.16, 4),
+        new THREE.MeshStandardMaterial({
+            color: 0x17252b,
+            emissive: 0x0a8fa8,
+            emissiveIntensity: 0.3,
+            roughness: 0.5,
+        })
+    );
+    pedestal.rotation.y = Math.PI / 4;
+    pedestal.position.y = -2.2;
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    group.add(pedestal);
+
+    scene.add(group);
+}
+
+function makeTextSprite(text) {
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 512;
+    labelCanvas.height = 160;
+    const ctx = labelCanvas.getContext('2d');
+    ctx.clearRect(0, 0, labelCanvas.width, labelCanvas.height);
+    ctx.fillStyle = 'rgba(9, 14, 18, 0.84)';
+    roundRect(ctx, 42, 38, 428, 84, 16);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(39, 215, 232, 0.82)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 42, 38, 428, 84, 16);
+    ctx.stroke();
+    ctx.fillStyle = '#eef5ef';
+    ctx.font = '700 54px Inter, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 80);
+
+    const texture = new THREE.CanvasTexture(labelCanvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+    }));
+    sprite.renderOrder = 21;
+    sprite.scale.set(2.4, 0.75, 1);
+    return sprite;
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + width, y, x + width, y + height, radius);
+    ctx.arcTo(x + width, y + height, x, y + height, radius);
+    ctx.arcTo(x, y + height, x, y, radius);
+    ctx.arcTo(x, y, x + width, y, radius);
+    ctx.closePath();
 }
 
 function makeBlockTexture(block) {

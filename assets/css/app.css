@@ -233,6 +233,72 @@ select option {
     grid-template-columns: minmax(0, 1fr) 38px 38px;
 }
 
+.character-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr);
+    align-items: end;
+    gap: 12px;
+    min-height: 112px;
+    padding: 10px;
+    border: 1px solid rgba(112, 183, 215, 0.32);
+    border-radius: 8px;
+    overflow: hidden;
+    background:
+        linear-gradient(90deg, rgba(13, 18, 22, 0.58), rgba(13, 18, 22, 0.9)),
+        radial-gradient(circle at 24% 18%, rgba(34, 205, 226, 0.32), transparent 34%),
+        var(--panel-solid);
+}
+
+.character-card::after {
+    content: "";
+    position: absolute;
+    inset: auto 10px 9px 10px;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #27d7e8, transparent, #e85fbb);
+    opacity: 0.72;
+}
+
+.character-image {
+    position: relative;
+    z-index: 1;
+    width: 86px;
+    height: 92px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    object-fit: cover;
+    object-position: 50% 28%;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.character-copy {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    padding-bottom: 12px;
+}
+
+.character-copy span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.character-copy strong {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 1.55rem;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .icon-button {
     width: 38px;
     padding: 0;
@@ -459,6 +525,16 @@ select option {
     .palette {
         grid-template-columns: repeat(10, minmax(42px, 1fr));
     }
+
+    .character-card {
+        grid-template-columns: 74px minmax(0, 1fr);
+        min-height: 98px;
+    }
+
+    .character-image {
+        width: 74px;
+        height: 78px;
+    }
 }
 
 @media (pointer: coarse) {
@@ -484,6 +560,10 @@ select option {
 
     .palette {
         grid-template-columns: repeat(5, minmax(40px, 1fr));
+    }
+
+    .character-copy strong {
+        font-size: 1.25rem;
     }
 
     .stats {

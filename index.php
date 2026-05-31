@@ -10,6 +10,13 @@ $config = kc_config();
 $user = Auth::user();
 $installed = (bool) ($config['installed'] ?? false);
 $appName = htmlspecialchars((string) ($config['app']['name'] ?? 'Khalid Craft'), ENT_QUOTES, 'UTF-8');
+$characterName = 'Khalid';
+$characterImagePath = 'assets/img/khalid-main-character.png';
+$characterImage = kc_public_path($characterImagePath) . '?v=' . filemtime(__DIR__ . '/' . $characterImagePath);
+$cssPath = 'assets/css/app.css';
+$jsPath = 'assets/js/game.js';
+$cssUrl = kc_public_path($cssPath) . '?v=' . filemtime(__DIR__ . '/' . $cssPath);
+$jsUrl = kc_public_path($jsPath) . '?v=' . filemtime(__DIR__ . '/' . $jsPath);
 $csrf = kc_csrf_token();
 ?>
 <!doctype html>
@@ -20,7 +27,8 @@ $csrf = kc_csrf_token();
     <meta name="csrf-token" content="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
     <title><?= $appName ?></title>
     <link rel="preconnect" href="https://unpkg.com">
-    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="preload" href="<?= htmlspecialchars($characterImage, ENT_QUOTES, 'UTF-8') ?>" as="image">
+    <link rel="stylesheet" href="<?= htmlspecialchars($cssUrl, ENT_QUOTES, 'UTF-8') ?>">
     <script>
         window.KHALIDCRAFT = <?= json_encode([
             'appName' => (string) ($config['app']['name'] ?? 'Khalid Craft'),
@@ -28,6 +36,10 @@ $csrf = kc_csrf_token();
             'installed' => $installed,
             'user' => $user,
             'csrfToken' => $csrf,
+            'character' => [
+                'name' => $characterName,
+                'image' => $characterImage,
+            ],
         ], JSON_UNESCAPED_SLASHES) ?>;
     </script>
 </head>
@@ -96,6 +108,13 @@ $csrf = kc_csrf_token();
                         <i data-lucide="trash-2" aria-hidden="true"></i>
                     </button>
                 </div>
+                <div class="character-card" aria-label="Main character Khalid">
+                    <img class="character-image" src="<?= htmlspecialchars($characterImage, ENT_QUOTES, 'UTF-8') ?>" alt="Khalid">
+                    <div class="character-copy">
+                        <span>Main Character</span>
+                        <strong><?= htmlspecialchars($characterName, ENT_QUOTES, 'UTF-8') ?></strong>
+                    </div>
+                </div>
                 <div class="palette" id="palette" aria-label="Block palette"></div>
             </div>
 
@@ -104,6 +123,7 @@ $csrf = kc_csrf_token();
                 <div class="reticle" aria-hidden="true"></div>
                 <div class="status-pill" id="statusPill" role="status"></div>
                 <div class="stats" aria-live="polite">
+                    <span id="characterName"><?= htmlspecialchars($characterName, ENT_QUOTES, 'UTF-8') ?></span>
                     <span id="blockCount">0 blocks</span>
                     <span id="selectedBlock">Grass</span>
                 </div>
@@ -128,6 +148,6 @@ $csrf = kc_csrf_token();
             }
         }
     </script>
-    <script type="module" src="assets/js/game.js"></script>
+    <script type="module" src="<?= htmlspecialchars($jsUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>
