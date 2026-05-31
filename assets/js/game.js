@@ -11,8 +11,6 @@ const characters = Array.isArray(config.characters) && config.characters.length 
         position: [0, 5.7, 0],
         scale: [3.2, 4.3, 1],
     }];
-const primaryCharacter = characters[0];
-
 function makeCharacterAvatarKey(name) {
     const cleaned = String(name ?? 'friend').toLowerCase().replace(/[^a-z0-9]+/g, '');
 
@@ -70,6 +68,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2(0, 0);
 const cube = new THREE.BoxGeometry(1, 1, 1);
 const starGeometry = new THREE.OctahedronGeometry(0.42, 0);
+const funnySparkGeometry = new THREE.OctahedronGeometry(0.12, 0);
 const dummy = new THREE.Object3D();
 const clock = new THREE.Clock();
 const worldBounds = { min: -64, max: 64, minY: -16, maxY: 64 };
@@ -86,7 +85,9 @@ let selectedType = 'grass';
 let currentWorldId = null;
 let currentSeed = makeSeed();
 let meshes = [];
+let characterActors = [];
 let lastTouch = null;
+const characterMaterialCache = new Map();
 
 const renderer = new THREE.WebGLRenderer({
     canvas: dom.canvas,
@@ -147,8 +148,8 @@ function init() {
     createCharacterAvatars();
     startKidQuest();
     loadWorldList();
-    const roster = characters.map((item) => item.name).join(' and ');
-    showStatus(`${roster} are ready. Have fun!`, false, 2200);
+    const roster = formatCharacterList(characters.map((item) => item.name));
+    showStatus(`${roster} are exploring. 67 is being silly!`, false, 2600);
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', () => window.setTimeout(resize, 250));
     window.visualViewport?.addEventListener('resize', resize);
@@ -181,6 +182,14 @@ function init() {
     animate();
 }
 
+function formatCharacterList(names) {
+    if (names.length <= 2) {
+        return names.join(' and ');
+    }
+
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 function createMaterials() {
     const map = new Map();
     for (const block of blockTypes) {
@@ -208,23 +217,246 @@ function createMaterials() {
     return map;
 }
 
-function createCharacterAvatars() {
-    document.documentElement.dataset.characterAvatars = 'loading';
-    let loaded = 0;
-    let failed = 0;
+function characterMaterial(color, options = {}) {
+    const key = `${color}:${options.emissive || ''}:${options.opacity || ''}`;
+    if (!characterMaterialCache.has(key)) {
+        const materialOptions = {
+            color: new THREE.Color(color),
+            roughness: 0.68,
+            metalness: 0.02,
+            ...options,
+        };
 
-    characters.forEach((character, index) => {
-        createCharacterAvatar(character, index, (ok) => {
-            loaded += ok ? 1 : 0;
-            failed += ok ? 0 : 1;
-            if (loaded + failed === characters.length) {
-                document.documentElement.dataset.characterAvatars = failed > 0 ? 'partial' : 'ready';
-            }
-        });
-    });
+        if (options.opacity !== undefined && options.opacity < 1) {
+            materialOptions.transparent = true;
+            materialOptions.depthWrite = false;
+        }
+
+        if (options.emissive) {
+            materialOptions.emissive = new THREE.Color(options.emissive);
+            materialOptions.emissiveIntensity = options.emissiveIntensity ?? 0.45;
+        }
+
+        characterMaterialCache.set(key, new THREE.MeshStandardMaterial(materialOptions));
+    }
+
+    return characterMaterialCache.get(key);
 }
 
-function createCharacterAvatar(character, index, onDone) {
+function addCharacterBox(parent, size, position, color, options = {}) {
+    const geometry = new THREE.BoxGeometry(size[0], size[1], size[2]);
+    const mesh = new THREE.Mesh(geometry, characterMaterial(color, options.material || {}));
+    mesh.position.set(position[0], position[1], position[2]);
+    if (options.rotation) {
+        mesh.rotation.set(options.rotation[0], options.rotation[1], options.rotation[2]);
+    }
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+
+    return mesh;
+}
+
+function addCharacterSphere(parent, radius, position, color, options = {}) {
+    const geometry = new THREE.SphereGeometry(radius, 16, 12);
+    const mesh = new THREE.Mesh(geometry, characterMaterial(color, options.material || {}));
+    mesh.position.set(position[0], position[1], position[2]);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+
+    return mesh;
+}
+
+function addCharacterCone(parent, radius, height, position, color) {
+    const geometry = new THREE.ConeGeometry(radius, height, 4);
+    const mesh = new THREE.Mesh(geometry, characterMaterial(color, { emissive: color, emissiveIntensity: 0.12 }));
+    mesh.position.set(position[0], position[1], position[2]);
+    mesh.rotation.y = Math.PI / 4;
+    mesh.castShadow = true;
+    parent.add(mesh);
+
+    return mesh;
+}
+
+function createKhalidModel() {
+    const root = new THREE.Group();
+    const parts = {};
+
+    addCharacterBox(root, [0.34, 0.78, 0.34], [-0.26, 0.44, 0], '#20242a');
+    addCharacterBox(root, [0.34, 0.78, 0.34], [0.26, 0.44, 0], '#20242a');
+    addCharacterBox(root, [1.02, 0.98, 0.48], [0, 1.2, 0], '#12161a', {
+        material: { emissive: '#00c8de', emissiveIntensity: 0.08 },
+    });
+    addCharacterBox(root, [1.12, 0.12, 0.52], [0, 1.67, 0], '#5ad7ee', {
+        material: { emissive: '#15d0e8', emissiveIntensity: 0.5 },
+    });
+    parts.leftArm = addCharacterBox(root, [0.3, 0.9, 0.32], [-0.76, 1.22, 0.04], '#f0a77d', { rotation: [0, 0, -0.38] });
+    parts.rightArm = addCharacterBox(root, [0.3, 0.9, 0.32], [0.76, 1.22, 0.04], '#f0a77d', { rotation: [0, 0, 0.38] });
+    addCharacterBox(root, [1.02, 0.76, 0.92], [0, 2.05, 0], '#e9a078');
+    addCharacterBox(root, [1.14, 0.34, 1.02], [0, 2.42, -0.02], '#3b241b');
+    addCharacterBox(root, [0.58, 0.22, 1.05], [-0.31, 2.24, -0.03], '#2d1b14');
+    addCharacterBox(root, [0.18, 0.1, 0.08], [-0.24, 2.08, -0.48], '#2a1711');
+    addCharacterBox(root, [0.18, 0.1, 0.08], [0.24, 2.08, -0.48], '#2a1711');
+
+    return { root, parts, height: 2.85 };
+}
+
+function createOmarModel() {
+    const root = new THREE.Group();
+    const parts = {};
+
+    addCharacterBox(root, [0.38, 0.74, 0.36], [-0.25, 0.42, 0], '#f4f7f3');
+    addCharacterBox(root, [0.38, 0.74, 0.36], [0.25, 0.42, 0], '#f4f7f3');
+    addCharacterBox(root, [1.12, 1.1, 0.54], [0, 1.24, 0], '#f8faf7');
+    addCharacterBox(root, [1.18, 0.14, 0.58], [0, 1.8, 0], '#d52e34');
+    addCharacterBox(root, [0.22, 0.22, 0.06], [-0.26, 1.34, -0.3], '#1d66b1');
+    addCharacterBox(root, [0.22, 0.22, 0.06], [0.26, 1.34, -0.3], '#246fc4');
+    parts.leftArm = addCharacterBox(root, [0.34, 0.98, 0.34], [-0.78, 1.2, 0], '#f3f7f4', { rotation: [0, 0, -0.28] });
+    parts.rightArm = addCharacterBox(root, [0.34, 0.98, 0.34], [0.78, 1.2, 0], '#f3f7f4', { rotation: [0, 0, 0.28] });
+    addCharacterBox(root, [0.9, 0.74, 0.86], [0, 2.12, 0], '#efa77b');
+    addCharacterBox(root, [0.96, 0.32, 0.9], [0, 2.48, 0], '#171719');
+    addCharacterBox(root, [1.1, 0.12, 0.96], [0, 1.79, -0.01], '#d83a38');
+    addCharacterBox(root, [0.16, 0.08, 0.07], [-0.24, 2.12, -0.45], '#1d1c1c');
+    addCharacterBox(root, [0.16, 0.08, 0.07], [0.24, 2.12, -0.45], '#1d1c1c');
+
+    return { root, parts, height: 2.9 };
+}
+
+function createFunny67BodySprite() {
+    const bodyCanvas = document.createElement('canvas');
+    bodyCanvas.width = 512;
+    bodyCanvas.height = 512;
+    const ctx = bodyCanvas.getContext('2d');
+    ctx.clearRect(0, 0, bodyCanvas.width, bodyCanvas.height);
+    ctx.font = '900 310px Arial Black, Impact, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 28;
+    ctx.strokeStyle = '#4c50b6';
+    ctx.fillStyle = '#aaa6ff';
+    ctx.strokeText('67', 256, 245);
+    ctx.fillText('67', 256, 245);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(182, 166, 34, 0, Math.PI * 2);
+    ctx.arc(332, 166, 34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111215';
+    ctx.beginPath();
+    ctx.arc(193, 174, 15, 0, Math.PI * 2);
+    ctx.arc(321, 157, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#4c50b6';
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.arc(252, 305, 56, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+
+    const texture = new THREE.CanvasTexture(bodyCanvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+    }));
+    sprite.scale.set(1.72, 1.72, 1);
+
+    return sprite;
+}
+
+function createSpeechBubble(text) {
+    const bubbleCanvas = document.createElement('canvas');
+    bubbleCanvas.width = 384;
+    bubbleCanvas.height = 160;
+    const ctx = bubbleCanvas.getContext('2d');
+    ctx.clearRect(0, 0, bubbleCanvas.width, bubbleCanvas.height);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    roundRect(ctx, 42, 24, 300, 92, 22);
+    ctx.fill();
+    ctx.fillStyle = '#20242a';
+    ctx.font = '900 48px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 192, 70);
+
+    const texture = new THREE.CanvasTexture(bubbleCanvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+    }));
+    sprite.renderOrder = 24;
+    sprite.scale.set(1.5, 0.62, 1);
+
+    return sprite;
+}
+
+function createFunny67Model() {
+    const root = new THREE.Group();
+    const parts = {};
+
+    parts.body = createFunny67BodySprite();
+    parts.body.position.set(0, 1.95, 0);
+    root.add(parts.body);
+    parts.leftArm = addCharacterBox(root, [0.16, 0.92, 0.16], [-0.98, 1.62, 0], '#8d87ff', { rotation: [0, 0, -0.34] });
+    parts.rightArm = addCharacterBox(root, [0.16, 0.92, 0.16], [0.98, 1.62, 0], '#8d87ff', { rotation: [0, 0, 0.34] });
+    parts.leftGlove = addCharacterSphere(root, 0.27, [-1.18, 1.02, 0], '#338bff', {
+        material: { emissive: '#1176ff', emissiveIntensity: 0.2 },
+    });
+    parts.rightGlove = addCharacterSphere(root, 0.27, [1.18, 1.02, 0], '#338bff', {
+        material: { emissive: '#1176ff', emissiveIntensity: 0.2 },
+    });
+    parts.leftLeg = addCharacterBox(root, [0.16, 0.92, 0.16], [-0.34, 0.62, 0], '#928cff');
+    parts.rightLeg = addCharacterBox(root, [0.16, 0.92, 0.16], [0.34, 0.62, 0], '#928cff');
+    parts.leftShoe = addCharacterBox(root, [0.52, 0.22, 0.4], [-0.42, 0.12, -0.04], '#2f8cff');
+    parts.rightShoe = addCharacterBox(root, [0.52, 0.22, 0.4], [0.42, 0.12, -0.04], '#2f8cff');
+    parts.hat = addCharacterCone(root, 0.2, 0.46, [0.32, 2.92, 0], '#ffcc3d');
+    parts.bubble = createSpeechBubble('WHEE!');
+    parts.bubble.position.set(0.72, 3.42, 0);
+    root.add(parts.bubble);
+    parts.sparkles = Array.from({ length: 5 }, (_, sparkleIndex) => {
+        const sparkle = new THREE.Mesh(
+            funnySparkGeometry,
+            characterMaterial(sparkleIndex % 2 === 0 ? '#ffdf54' : '#5deaff', {
+                emissive: sparkleIndex % 2 === 0 ? '#ffdf54' : '#5deaff',
+                emissiveIntensity: 0.8,
+            })
+        );
+        sparkle.castShadow = false;
+        root.add(sparkle);
+        return sparkle;
+    });
+
+    return { root, parts, height: 3.68, funny: true };
+}
+
+function createCharacterModel(character) {
+    const name = String(character.name).toLowerCase();
+    if (name === '67') {
+        return createFunny67Model();
+    }
+
+    if (name === 'omar') {
+        return createOmarModel();
+    }
+
+    return createKhalidModel();
+}
+
+function createCharacterAvatars() {
+    document.documentElement.dataset.characterAvatars = 'loading';
+    characterActors = [];
+
+    characters.forEach((character, index) => {
+        createCharacterAvatar(character, index);
+    });
+
+    document.documentElement.dataset.characterAvatars = 'ready';
+}
+
+function createCharacterAvatar(character, index) {
     const group = new THREE.Group();
     group.name = `${character.name} Avatar`;
     const [x, y, z] = Array.isArray(character.position) ? character.position : [index * 3.2, 5.5, index * -0.6];
@@ -232,49 +464,25 @@ function createCharacterAvatar(character, index, onDone) {
     const avatarStatusKey = makeCharacterAvatarKey(character.name);
     document.documentElement.dataset[avatarStatusKey] = 'loading';
 
-    const loader = new THREE.TextureLoader();
-    loader.load(character.image, (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true,
-            depthTest: false,
-            depthWrite: false,
-        }));
-        sprite.name = character.name;
-        sprite.renderOrder = 20 + index;
-        const [sx, sy, sz] = Array.isArray(character.scale) ? character.scale : [2.8, 4.2, 1];
-        sprite.scale.set(sx, sy, sz);
-        group.add(sprite);
-        document.documentElement.dataset[avatarStatusKey] = 'ready';
-        window[makeCharacterReadyFlag(character.name)] = true;
-        onDone(true);
-    }, undefined, () => {
-        document.documentElement.dataset[avatarStatusKey] = 'error';
-        onDone(false);
-    });
+    const model = createCharacterModel(character);
+    group.add(model.root);
 
     const label = makeTextSprite(character.name);
-    label.position.set(0, 2.45, 0);
+    label.position.set(0, model.height + 0.42, 0);
     group.add(label);
 
-    const pedestal = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.45, 1.45, 0.16, 4),
-        new THREE.MeshStandardMaterial({
-            color: 0x17252b,
-            emissive: 0x0a8fa8,
-            emissiveIntensity: 0.3,
-            roughness: 0.5,
-        })
-    );
-    pedestal.rotation.y = Math.PI / 4;
-    pedestal.position.y = -2.2;
-    pedestal.castShadow = true;
-    pedestal.receiveShadow = true;
-    group.add(pedestal);
-
     scene.add(group);
+    const actor = createCharacterActor(character, index, group, model);
+    const spawn = findNearbyWalkableSpot(group.position.x, group.position.z, 8);
+    group.position.x = spawn.x;
+    group.position.z = spawn.z;
+    actor.home.set(spawn.x, 0, spawn.z);
+    actor.target.set(spawn.x, 0, spawn.z);
+    characterActors.push(actor);
+    chooseCharacterTarget(actor, true);
+    updateCharacterGrounding(actor, 0);
+    document.documentElement.dataset[avatarStatusKey] = 'ready';
+    window[makeCharacterReadyFlag(character.name)] = true;
 }
 
 function makeTextSprite(text) {
@@ -442,7 +650,22 @@ function generateWorld(seed) {
 
     camera.position.set(8, 9, 12);
     camera.lookAt(0, 3, 0);
+    clearCompanionStartArea();
     rebuildMeshes();
+}
+
+function clearCompanionStartArea() {
+    for (let x = 2; x <= 14; x += 1) {
+        for (let z = 2; z <= 14; z += 1) {
+            for (let y = 2; y <= worldBounds.maxY; y += 1) {
+                const key = keyOf(x, y, z);
+                const type = blocks.get(key);
+                if (type === 'leaves' || type === 'wood') {
+                    blocks.delete(key);
+                }
+            }
+        }
+    }
 }
 
 function addTree(x, y, z) {
@@ -614,6 +837,7 @@ function animate() {
     requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.05);
     updateMovement(delta);
+    updateCharacterActors(delta);
     updateStars(delta);
     renderer.render(scene, camera);
 }
@@ -643,6 +867,187 @@ function updateMovement(delta) {
     camera.position.x = clamp(camera.position.x, worldBounds.min + 1, worldBounds.max - 1);
     camera.position.y = clamp(camera.position.y, 2, worldBounds.maxY);
     camera.position.z = clamp(camera.position.z, worldBounds.min + 1, worldBounds.max - 1);
+}
+
+function createCharacterActor(character, index, group, model) {
+    const isFunny = String(character.name) === '67';
+    return {
+        character,
+        index,
+        group,
+        model,
+        home: new THREE.Vector3(group.position.x, 0, group.position.z),
+        target: new THREE.Vector3(group.position.x, 0, group.position.z),
+        nextTargetAt: 0,
+        speed: isFunny ? 3.15 : 1.35 + index * 0.18,
+        phase: index * 1.73 + Math.random() * 0.4,
+        isFunny,
+    };
+}
+
+function getCharacterSurface(x, z) {
+    const ix = Math.floor(x);
+    const iz = Math.floor(z);
+    const y = findSurfaceY(ix, iz);
+    const type = blocks.get(keyOf(ix, y - 1, iz));
+
+    return { x: ix, y, z: iz, type };
+}
+
+function isCharacterWalkableSpot(x, z) {
+    const surface = getCharacterSurface(x, z);
+    return surface.type !== undefined
+        && !['leaves', 'wood', 'water', 'glass'].includes(surface.type)
+        && surface.y <= 7;
+}
+
+function findNearbyWalkableSpot(x, z, maxRadius = 8) {
+    if (isCharacterWalkableSpot(x, z)) {
+        const surface = getCharacterSurface(x, z);
+        return { x: surface.x + 0.5, z: surface.z + 0.5 };
+    }
+
+    for (let radius = 1; radius <= maxRadius; radius += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+            for (let dz = -radius; dz <= radius; dz += 1) {
+                if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) {
+                    continue;
+                }
+
+                const candidateX = Math.round(x) + dx;
+                const candidateZ = Math.round(z) + dz;
+                if (isCharacterWalkableSpot(candidateX, candidateZ)) {
+                    return { x: candidateX + 0.5, z: candidateZ + 0.5 };
+                }
+            }
+        }
+    }
+
+    return { x, z };
+}
+
+function chooseCharacterTarget(actor, forceNearHome = false) {
+    const elapsed = clock.elapsedTime;
+    const cameraFlat = new THREE.Vector3(camera.position.x, 0, camera.position.z);
+    const actorFlat = new THREE.Vector3(actor.group.position.x, 0, actor.group.position.z);
+    const shouldCatchUp = actorFlat.distanceTo(cameraFlat) > (actor.isFunny ? 24 : 20);
+    const center = shouldCatchUp && !forceNearHome ? cameraFlat : actor.home;
+    let x = actor.group.position.x;
+    let z = actor.group.position.z;
+
+    for (let attempt = 0; attempt < 18; attempt += 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = actor.isFunny ? 4 + Math.random() * 10 : 3 + Math.random() * 8;
+        const candidateX = clamp(center.x + Math.cos(angle) * radius, worldBounds.min + 3, worldBounds.max - 3);
+        const candidateZ = clamp(center.z + Math.sin(angle) * radius, worldBounds.min + 3, worldBounds.max - 3);
+
+        if (isCharacterWalkableSpot(candidateX, candidateZ)) {
+            const surface = getCharacterSurface(candidateX, candidateZ);
+            x = surface.x + 0.5;
+            z = surface.z + 0.5;
+            break;
+        }
+    }
+
+    actor.target.set(x, 0, z);
+    actor.nextTargetAt = elapsed + (actor.isFunny ? 1.1 + Math.random() * 1.6 : 3 + Math.random() * 3.5);
+}
+
+function updateCharacterActors(delta) {
+    const elapsed = clock.elapsedTime;
+    for (const actor of characterActors) {
+        const position = actor.group.position;
+        const toTarget = new THREE.Vector3(actor.target.x - position.x, 0, actor.target.z - position.z);
+        const distance = toTarget.length();
+        if (distance < 0.35 || elapsed > actor.nextTargetAt) {
+            chooseCharacterTarget(actor);
+        }
+
+        if (distance > 0.04) {
+            toTarget.normalize();
+            const sillySpeedBoost = actor.isFunny ? 1 + Math.max(0, Math.sin(elapsed * 5.5 + actor.phase)) * 0.75 : 1;
+            const step = Math.min(distance, actor.speed * sillySpeedBoost * delta);
+            position.x += toTarget.x * step;
+            position.z += toTarget.z * step;
+            const yaw = Math.atan2(toTarget.x, toTarget.z);
+            actor.group.rotation.y = rotateToward(actor.group.rotation.y, yaw, delta * (actor.isFunny ? 8 : 4.5));
+        }
+
+        updateCharacterGrounding(actor, distance);
+        animateCharacterModel(actor, distance, elapsed);
+    }
+}
+
+function updateCharacterGrounding(actor, distance) {
+    const groundY = findSurfaceY(Math.round(actor.group.position.x), Math.round(actor.group.position.z));
+    const elapsed = clock.elapsedTime;
+    const moving = distance > 0.05;
+    const hop = actor.isFunny
+        ? Math.abs(Math.sin(elapsed * 7.6 + actor.phase)) * (moving ? 0.5 : 0.3)
+        : Math.max(0, Math.sin(elapsed * 5.2 + actor.phase)) * (moving ? 0.09 : 0.03);
+    actor.group.position.y = groundY + 0.03 + hop;
+}
+
+function animateCharacterModel(actor, distance, elapsed) {
+    const parts = actor.model.parts || {};
+    const moving = distance > 0.05;
+    const step = moving ? Math.sin(elapsed * (actor.isFunny ? 10 : 6) + actor.phase) : Math.sin(elapsed * 2 + actor.phase) * 0.25;
+    actor.model.root.rotation.z = actor.isFunny
+        ? Math.sin(elapsed * 4.2 + actor.phase) * 0.18
+        : step * 0.035;
+
+    if (parts.leftArm) {
+        parts.leftArm.rotation.z = (actor.isFunny ? -0.34 : -0.28) + step * (actor.isFunny ? 0.45 : 0.16);
+    }
+    if (parts.rightArm) {
+        parts.rightArm.rotation.z = (actor.isFunny ? 0.34 : 0.28) - step * (actor.isFunny ? 0.45 : 0.16);
+    }
+
+    if (!actor.isFunny) {
+        return;
+    }
+
+    if (parts.body) {
+        parts.body.position.y = 1.95 + Math.sin(elapsed * 8.4 + actor.phase) * 0.08;
+        parts.body.material.rotation = Math.sin(elapsed * 3.2) * 0.05;
+    }
+    if (parts.leftGlove) {
+        parts.leftGlove.position.y = 1.02 + Math.sin(elapsed * 9.5 + actor.phase) * 0.22;
+    }
+    if (parts.rightGlove) {
+        parts.rightGlove.position.y = 1.02 + Math.cos(elapsed * 9.5 + actor.phase) * 0.22;
+    }
+    if (parts.hat) {
+        parts.hat.rotation.y += 0.18;
+        parts.hat.position.y = 2.92 + Math.abs(Math.sin(elapsed * 7.6 + actor.phase)) * 0.16;
+    }
+    if (parts.bubble) {
+        parts.bubble.visible = Math.sin(elapsed * 1.4 + actor.phase) > -0.35;
+        parts.bubble.position.x = 0.72 + Math.sin(elapsed * 3.4) * 0.08;
+        parts.bubble.position.y = 3.42 + Math.abs(Math.sin(elapsed * 5.4)) * 0.12;
+    }
+    if (parts.sparkles) {
+        parts.sparkles.forEach((sparkle, sparkleIndex) => {
+            const angle = elapsed * (2.2 + sparkleIndex * 0.2) + sparkleIndex * 1.25;
+            const radius = 0.78 + (sparkleIndex % 2) * 0.22;
+            sparkle.position.set(
+                Math.cos(angle) * radius,
+                2.2 + Math.sin(angle * 1.7) * 0.55,
+                Math.sin(angle) * radius
+            );
+            sparkle.rotation.x += 0.16;
+            sparkle.rotation.y += 0.12;
+        });
+    }
+}
+
+function rotateToward(current, target, amount) {
+    const delta = normalizeAngle(target - current);
+    return current + clamp(delta, -amount, amount);
+}
+
+function normalizeAngle(value) {
+    return Math.atan2(Math.sin(value), Math.cos(value));
 }
 
 function resize() {
