@@ -77,6 +77,7 @@ $characters = [
     ],
 ];
 $characterNames = implode(' + ', array_column($characters, 'name'));
+$lockHeroUrl = $characters[0]['image'];
 $cssPath = 'assets/css/app.css';
 $jsPath = 'assets/js/game.js';
 $cssUrl = $assetUrl($cssPath);
@@ -89,7 +90,9 @@ $jsUrl = $assetUrl($jsPath);
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title><?= $appName ?></title>
     <link rel="preconnect" href="https://unpkg.com">
-    <?php if ($gameUnlocked): ?>
+    <?php if (!$gameUnlocked): ?>
+        <link rel="preload" href="<?= htmlspecialchars($lockHeroUrl, ENT_QUOTES, 'UTF-8') ?>" as="image">
+    <?php elseif ($gameUnlocked): ?>
         <?php foreach ($characters as $character): ?>
             <link rel="preload" href="<?= htmlspecialchars($character['image'], ENT_QUOTES, 'UTF-8') ?>" as="image">
         <?php endforeach; ?>
@@ -109,24 +112,27 @@ $jsUrl = $assetUrl($jsPath);
 <body>
     <?php if (!$gameUnlocked): ?>
         <main class="lock-shell">
-            <section class="lock-panel" aria-label="Enter Khalid Craft">
-                <div class="brand lock-brand" aria-label="<?= $appName ?>">
-                    <span class="brand-mark" aria-hidden="true"></span>
-                    <span class="brand-name"><?= $appName ?></span>
-                </div>
-                <form class="password-form" method="post" autocomplete="off">
-                    <label for="gamePassword">Password</label>
-                    <div class="password-row">
-                        <input id="gamePassword" name="game_password" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12" autofocus required>
-                        <button class="button primary" type="submit">
-                            <i data-lucide="log-in" aria-hidden="true"></i>
-                            <span>Enter</span>
-                        </button>
+            <section class="lock-stage" aria-label="Enter Khalid Craft">
+                <img class="lock-hero-image" src="<?= htmlspecialchars($lockHeroUrl, ENT_QUOTES, 'UTF-8') ?>" alt="KhalidCraft esports world">
+                <div class="lock-panel">
+                    <div class="brand lock-brand" aria-label="<?= $appName ?>">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span class="brand-name"><?= $appName ?></span>
                     </div>
-                    <?php if ($gateError !== ''): ?>
-                        <p class="password-error" role="alert"><?= htmlspecialchars($gateError, ENT_QUOTES, 'UTF-8') ?></p>
-                    <?php endif; ?>
-                </form>
+                    <form class="password-form" method="post" autocomplete="off">
+                        <label for="gamePassword">Password</label>
+                        <div class="password-row">
+                            <input id="gamePassword" name="game_password" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12" autofocus required>
+                            <button class="button primary" type="submit">
+                                <i data-lucide="log-in" aria-hidden="true"></i>
+                                <span>Enter</span>
+                            </button>
+                        </div>
+                        <?php if ($gateError !== ''): ?>
+                            <p class="password-error" role="alert"><?= htmlspecialchars($gateError, ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php endif; ?>
+                    </form>
+                </div>
             </section>
         </main>
         <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
