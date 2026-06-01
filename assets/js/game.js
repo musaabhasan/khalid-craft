@@ -32,8 +32,13 @@ function normalizeCharacterName(name) {
 }
 
 const dom = {
+    shell: document.querySelector('.shell'),
     canvas: document.getElementById('gameCanvas'),
     stage: document.getElementById('stage'),
+    worldPanel: document.getElementById('worldPanel'),
+    menuToggle: document.getElementById('menuToggleButton'),
+    menuClose: document.getElementById('menuCloseButton'),
+    menuScrim: document.getElementById('menuScrim'),
     palette: document.getElementById('palette'),
     worldName: document.getElementById('worldName'),
     worldSelect: document.getElementById('worldSelect'),
@@ -51,6 +56,7 @@ const dom = {
     questReset: document.getElementById('questResetButton'),
 };
 
+const compactMenuQuery = window.matchMedia('(max-width: 1050px), (pointer: coarse)');
 const blockTypes = [
     { id: 'grass', name: 'Grass', color: '#5ca84f', side: '#6f5134' },
     { id: 'dirt', name: 'Dirt', color: '#7a5434' },
@@ -822,6 +828,8 @@ function buildPalette() {
 }
 
 function bindUi() {
+    setupMenuDrawer();
+
     dom.newWorld.addEventListener('click', () => {
         currentWorldId = null;
         currentSeed = makeSeed();
@@ -839,6 +847,65 @@ function bindUi() {
         startKidQuest();
         showStatus('New quest!');
     });
+}
+
+function setupMenuDrawer() {
+    setMenuCollapsed(compactMenuQuery.matches);
+
+    dom.menuToggle?.addEventListener('click', () => {
+        setMenuCollapsed(!dom.shell.classList.contains('menu-collapsed'));
+    });
+    dom.menuClose?.addEventListener('click', () => {
+        setMenuCollapsed(true);
+        dom.menuToggle?.focus();
+    });
+    dom.menuScrim?.addEventListener('click', () => {
+        setMenuCollapsed(true);
+        dom.menuToggle?.focus();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !dom.shell.classList.contains('menu-collapsed')) {
+            setMenuCollapsed(true);
+            dom.menuToggle?.focus();
+        }
+    });
+
+    const updateForViewport = (event) => setMenuCollapsed(event.matches);
+    if (typeof compactMenuQuery.addEventListener === 'function') {
+        compactMenuQuery.addEventListener('change', updateForViewport);
+    } else if (typeof compactMenuQuery.addListener === 'function') {
+        compactMenuQuery.addListener(updateForViewport);
+    }
+}
+
+function setMenuCollapsed(collapsed) {
+    if (!dom.shell) {
+        return;
+    }
+
+    dom.shell.classList.toggle('menu-collapsed', collapsed);
+    dom.shell.dataset.menu = collapsed ? 'closed' : 'open';
+    dom.menuToggle?.setAttribute('aria-expanded', String(!collapsed));
+    dom.menuToggle?.setAttribute('title', collapsed ? 'Show tools' : 'Hide tools');
+    dom.menuToggle?.setAttribute('aria-label', collapsed ? 'Show tools' : 'Hide tools');
+
+    if (dom.worldPanel) {
+        if (collapsed) {
+            dom.worldPanel.setAttribute('aria-hidden', 'true');
+        } else {
+            dom.worldPanel.removeAttribute('aria-hidden');
+        }
+        dom.worldPanel.inert = collapsed;
+    }
+
+    const icon = dom.menuToggle?.querySelector('i');
+    if (icon) {
+        icon.setAttribute('data-lucide', collapsed ? 'panel-left-open' : 'panel-left-close');
+    }
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+    window.requestAnimationFrame(resize);
 }
 
 function selectBlock(type) {

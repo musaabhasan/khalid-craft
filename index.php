@@ -142,12 +142,17 @@ $jsUrl = $assetUrl($jsPath);
             }
         </script>
     <?php else: ?>
-    <main class="shell">
+    <main class="shell" data-menu="open">
         <header class="topbar">
             <div class="brand" aria-label="<?= $appName ?>">
                 <span class="brand-mark" aria-hidden="true"></span>
                 <span class="brand-name"><?= $appName ?></span>
             </div>
+
+            <button class="button menu-toggle" id="menuToggleButton" type="button" aria-controls="worldPanel" aria-expanded="true">
+                <i data-lucide="panel-left-close" aria-hidden="true"></i>
+                <span>Tools</span>
+            </button>
 
             <div class="account" id="accountPanel">
                 <span class="account-name">Browser Play</span>
@@ -159,7 +164,16 @@ $jsUrl = $assetUrl($jsPath);
         </header>
 
         <section class="game-layout" aria-label="<?= $appName ?> game">
-            <div class="world-panel">
+            <div class="world-panel" id="worldPanel">
+                <div class="panel-head">
+                    <span class="panel-title">
+                        <i data-lucide="blocks" aria-hidden="true"></i>
+                        World Tools
+                    </span>
+                    <button class="icon-button panel-close" id="menuCloseButton" type="button" title="Close tools" aria-label="Close tools">
+                        <i data-lucide="x" aria-hidden="true"></i>
+                    </button>
+                </div>
                 <div class="world-row">
                     <input id="worldName" type="text" maxlength="60" value="Khalid World" aria-label="World name">
                     <button class="icon-button" id="newWorldButton" type="button" title="New world" aria-label="New world">
@@ -216,6 +230,7 @@ $jsUrl = $assetUrl($jsPath);
                 </div>
                 <div class="palette" id="palette" aria-label="Block palette"></div>
             </div>
+            <button class="menu-scrim" id="menuScrim" type="button" tabindex="-1" aria-label="Close tools"></button>
 
             <div class="stage" id="stage">
                 <canvas id="gameCanvas"></canvas>
