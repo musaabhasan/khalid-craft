@@ -66,6 +66,31 @@ select:disabled {
         var(--bg);
 }
 
+.shell.app-fullscreen {
+    grid-template-rows: 1fr;
+    background: #071018;
+}
+
+.shell.app-fullscreen .topbar {
+    position: absolute;
+    inset: 0 0 auto 0;
+    min-height: 58px;
+    background: rgba(9, 13, 18, 0.78);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+}
+
+.shell.app-fullscreen .game-layout {
+    height: 100%;
+}
+
+.shell.app-fullscreen .status-pill {
+    top: 78px;
+}
+
+.shell.app-fullscreen .stats {
+    top: 76px;
+}
+
 .lock-shell {
     position: relative;
     width: 100vw;
@@ -201,6 +226,20 @@ select:disabled {
 
 .menu-toggle {
     flex: 0 0 auto;
+}
+
+.fullscreen-toggle[aria-pressed="true"] {
+    border-color: rgba(112, 183, 215, 0.7);
+    background: rgba(112, 183, 215, 0.18);
+}
+
+.fullscreen-exit-icon,
+.fullscreen-toggle[aria-pressed="true"] .fullscreen-enter-icon {
+    display: none;
+}
+
+.fullscreen-toggle[aria-pressed="true"] .fullscreen-exit-icon {
+    display: block;
 }
 
 input,
@@ -1115,6 +1154,7 @@ select option {
 
     .topbar {
         padding: 10px;
+        flex-wrap: nowrap;
     }
 
     .world-panel {
@@ -1139,6 +1179,17 @@ select option {
     }
 
     .account-name {
+        display: none;
+    }
+
+    .account {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .menu-toggle span,
+    .fullscreen-toggle span,
+    .account .button.ghost span {
         display: none;
     }
 

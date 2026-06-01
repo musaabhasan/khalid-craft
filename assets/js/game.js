@@ -39,6 +39,7 @@ const dom = {
     menuToggle: document.getElementById('menuToggleButton'),
     menuClose: document.getElementById('menuCloseButton'),
     menuScrim: document.getElementById('menuScrim'),
+    fullscreen: document.getElementById('fullscreenButton'),
     palette: document.getElementById('palette'),
     worldName: document.getElementById('worldName'),
     worldSelect: document.getElementById('worldSelect'),
@@ -137,6 +138,7 @@ let touchLookMoved = false;
 let ignoreNextCanvasTap = false;
 let lastInputWasTouch = false;
 let touchInputTimer = null;
+let isAppFullscreen = false;
 const characterMaterialCache = new Map();
 
 const renderer = new THREE.WebGLRenderer({
@@ -829,6 +831,7 @@ function buildPalette() {
 
 function bindUi() {
     setupMenuDrawer();
+    setupFullscreenToggle();
 
     dom.newWorld.addEventListener('click', () => {
         currentWorldId = null;
@@ -847,6 +850,113 @@ function bindUi() {
         startKidQuest();
         showStatus('New quest!');
     });
+}
+
+function setupFullscreenToggle() {
+    updateFullscreenButton();
+
+    dom.fullscreen?.addEventListener('click', async () => {
+        try {
+            const fullscreenElement = getFullscreenElement();
+            if (fullscreenElement || isAppFullscreen) {
+                if (fullscreenElement) {
+                    await exitFullscreen();
+                }
+                setAppFullscreen(false);
+                return;
+            }
+
+            if (!canUseFullscreen()) {
+                setAppFullscreen(true);
+                showStatus('Fullscreen view is on. Tap Exit to go back.', false, 2400);
+                return;
+            }
+
+            await requestFullscreen(dom.shell || document.documentElement);
+            setAppFullscreen(true);
+        } catch {
+            setAppFullscreen(true);
+            showStatus('Fullscreen view is on. Tap Exit to go back.', false, 2600);
+        } finally {
+            updateFullscreenButton();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+}
+
+function canUseFullscreen() {
+    const target = dom.shell || document.documentElement;
+    return Boolean(target.requestFullscreen || target.webkitRequestFullscreen);
+}
+
+function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function requestFullscreen(target) {
+    if (target.requestFullscreen) {
+        return target.requestFullscreen();
+    }
+    if (target.webkitRequestFullscreen) {
+        return target.webkitRequestFullscreen();
+    }
+
+    return Promise.reject(new Error('Fullscreen unavailable'));
+}
+
+function exitFullscreen() {
+    if (document.exitFullscreen) {
+        return document.exitFullscreen();
+    }
+    if (document.webkitExitFullscreen) {
+        return document.webkitExitFullscreen();
+    }
+
+    return Promise.resolve();
+}
+
+function updateFullscreenButton() {
+    if (!dom.fullscreen) {
+        return;
+    }
+
+    const isFullscreen = Boolean(getFullscreenElement()) || isAppFullscreen;
+    const label = isFullscreen ? 'Exit' : 'Full';
+    const title = isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen';
+    dom.fullscreen.setAttribute('aria-pressed', String(isFullscreen));
+    dom.fullscreen.setAttribute('aria-label', title);
+    dom.fullscreen.setAttribute('title', title);
+
+    const text = dom.fullscreen.querySelector('span');
+    if (text) {
+        text.textContent = label;
+    }
+
+    window.requestAnimationFrame(resize);
+}
+
+function handleFullscreenChange() {
+    if (!getFullscreenElement() && isAppFullscreen) {
+        setAppFullscreen(false);
+        return;
+    }
+
+    updateFullscreenButton();
+}
+
+function setAppFullscreen(enabled) {
+    if (!dom.shell) {
+        return;
+    }
+
+    isAppFullscreen = enabled;
+    dom.shell.classList.toggle('app-fullscreen', enabled);
+    if (enabled) {
+        setMenuCollapsed(true);
+    }
+    updateFullscreenButton();
 }
 
 function setupMenuDrawer() {

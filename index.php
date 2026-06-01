@@ -156,6 +156,11 @@ $jsUrl = $assetUrl($jsPath);
 
             <div class="account" id="accountPanel">
                 <span class="account-name">Browser Play</span>
+                <button class="button ghost fullscreen-toggle" id="fullscreenButton" type="button" title="Enter fullscreen" aria-label="Enter fullscreen" aria-pressed="false">
+                    <i class="fullscreen-enter-icon" data-lucide="maximize" aria-hidden="true"></i>
+                    <i class="fullscreen-exit-icon" data-lucide="minimize" aria-hidden="true"></i>
+                    <span>Full</span>
+                </button>
                 <a class="button ghost" href="?lock=1" title="Lock game">
                     <i data-lucide="lock" aria-hidden="true"></i>
                     <span>Lock</span>
