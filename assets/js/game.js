@@ -1447,6 +1447,7 @@ function createCharacterActor(character, index, group, model) {
         isFunny,
         isTagTarget,
         isTung,
+        routeTargetCount: 0,
     };
 }
 
@@ -1633,6 +1634,10 @@ function applyComedySceneActor(actor, delta, elapsed) {
         return null;
     }
 
+    if (actor.isTung) {
+        return null;
+    }
+
     const name = normalizeCharacterName(actor.character.name);
     const progress = elapsed - comedyScene.stageStarted;
     const khalid = getCharacterActor('Khalid');
@@ -1660,10 +1665,8 @@ function applyComedySceneActor(actor, delta, elapsed) {
             return distance;
         }
 
-        actor.action = actor.isTung ? 'drum' : 'watch';
-        const spectatorSide = actor.isTung ? -2.4 : 0;
-        const spectatorForward = actor.isTung ? 2.8 : 2.4;
-        return moveActorToward(actor, getComedyPoint(`handshake-${name}`, spectatorSide, spectatorForward), delta, actor.isTung ? 1.4 : 1.2);
+        actor.action = 'watch';
+        return moveActorToward(actor, getComedyPoint(`handshake-${name}`, 0, 2.4), delta, 1.2);
     }
 
     if (stage === 'dance') {
@@ -1680,16 +1683,6 @@ function applyComedySceneActor(actor, delta, elapsed) {
             const angle = progress * 2.35;
             const point = comedyMovingPoint(Math.cos(angle) * 4.1, Math.sin(angle) * 3.2);
             return moveActorToward(actor, point, delta, 1.65);
-        }
-
-        if (actor.isTung) {
-            actor.action = 'drum';
-            const point = getComedyPoint('chase-tung', 0, 3.2);
-            const distance = moveActorToward(actor, point, delta, 1.35);
-            if (funny67) {
-                faceActorToward(actor, funny67.group.position, delta, 8);
-            }
-            return distance;
         }
 
         actor.action = 'chase';
@@ -1713,16 +1706,6 @@ function applyComedySceneActor(actor, delta, elapsed) {
             return moveActorToward(actor, point, delta, 1.4);
         }
 
-        if (actor.isTung) {
-            actor.action = 'drum';
-            const point = getComedyPoint('tag-tung', 0, 2.7);
-            const distance = moveActorToward(actor, point, delta, 1.35);
-            if (funny67) {
-                faceActorToward(actor, funny67.group.position, delta, 8);
-            }
-            return distance;
-        }
-
         actor.action = 'playTag';
         const side = name === 'khalid' ? -1.1 : 1.1;
         const point = getComedyPoint(`tag-${name}`, side, -0.35);
@@ -1734,10 +1717,9 @@ function applyComedySceneActor(actor, delta, elapsed) {
     }
 
     if (stage === 'makeup') {
-        actor.action = actor.isTagTarget ? 'makeup67' : actor.isTung ? 'drum' : 'makeup';
-        const side = name === 'khalid' ? -1.15 : name === 'omar' ? 1.15 : actor.isTung ? 2.35 : 0;
-        const forward = actor.isTung ? 1.35 : 0;
-        const point = getComedyPoint(`makeup-${name}`, side, forward);
+        actor.action = actor.isTagTarget ? 'makeup67' : 'makeup';
+        const side = name === 'khalid' ? -1.15 : name === 'omar' ? 1.15 : 0;
+        const point = getComedyPoint(`makeup-${name}`, side, 0);
         const distance = moveActorToward(actor, point, delta, 1.5);
         const center = getComedyPoint('makeup-67', 0, 0);
         faceActorToward(actor, center, delta, 6);
@@ -1748,6 +1730,11 @@ function applyComedySceneActor(actor, delta, elapsed) {
 }
 
 function chooseCharacterTarget(actor, forceNearHome = false) {
+    if (actor.isTung) {
+        chooseTungWorldTarget(actor, forceNearHome);
+        return;
+    }
+
     const elapsed = clock.elapsedTime;
     const cameraFlat = new THREE.Vector3(camera.position.x, 0, camera.position.z);
     const actorFlat = new THREE.Vector3(actor.group.position.x, 0, actor.group.position.z);
@@ -1774,12 +1761,55 @@ function chooseCharacterTarget(actor, forceNearHome = false) {
     actor.nextTargetAt = elapsed + (actor.isFunny ? 1.1 + Math.random() * 1.6 : 3 + Math.random() * 3.5);
 }
 
+function chooseTungWorldTarget(actor, forceNearHome = false) {
+    const elapsed = clock.elapsedTime;
+    const routePoints = [
+        [-18, -14],
+        [18, -10],
+        [24, 18],
+        [-22, 22],
+        [-8, 6],
+        [10, 26],
+        [30, -24],
+        [-30, -22],
+    ];
+    let x = actor.group.position.x;
+    let z = actor.group.position.z;
+
+    for (let attempt = 0; attempt < 36; attempt += 1) {
+        let candidateX;
+        let candidateZ;
+        if (forceNearHome && attempt < 8) {
+            candidateX = actor.home.x + (Math.random() - 0.5) * 16;
+            candidateZ = actor.home.z + (Math.random() - 0.5) * 16;
+        } else {
+            const base = routePoints[(actor.routeTargetCount + attempt) % routePoints.length];
+            candidateX = base[0] + (Math.random() - 0.5) * 12;
+            candidateZ = base[1] + (Math.random() - 0.5) * 12;
+        }
+
+        candidateX = clamp(candidateX, worldBounds.min + 4, worldBounds.max - 4);
+        candidateZ = clamp(candidateZ, worldBounds.min + 4, worldBounds.max - 4);
+
+        if (isCharacterWalkableSpot(candidateX, candidateZ)) {
+            const surface = getCharacterSurface(candidateX, candidateZ);
+            x = surface.x + 0.5;
+            z = surface.z + 0.5;
+            actor.routeTargetCount += 1;
+            break;
+        }
+    }
+
+    actor.target.set(x, 0, z);
+    actor.nextTargetAt = elapsed + 5.5 + Math.random() * 3.5;
+}
+
 function updateCharacterActors(delta) {
     const elapsed = clock.elapsedTime;
     updateComedyScene(elapsed);
 
     for (const actor of characterActors) {
-        actor.action = 'wander';
+        actor.action = actor.isTung ? 'drum' : 'wander';
         let distance = applyComedySceneActor(actor, delta, elapsed);
 
         if (distance === null) {
