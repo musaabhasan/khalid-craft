@@ -11,8 +11,8 @@ Khalid Craft is an original browser voxel sandbox built for simple shared hostin
 - Touch look controls and mobile movement buttons
 - Responsive phone and iPad layout with compact controls
 - Kid quest with stars, block-building goals, and celebration feedback
-- Character identities for Khalid, Omar, 67, and Tung Tung Tung Sahur using included portrait assets
-- Moving blocky 3D companions in the world, including funny bouncing 67 and Tung Tung Tung Sahur characters
+- Character identities for Khalid, Omar, 67, and TTT Sahur using included portrait assets
+- Moving blocky 3D companions in the world, including funny bouncing 67 and TTT Sahur characters
 - Automatic comedy scenes where Khalid and Omar shake hands, dance, chase 67, and make up after a silly tag moment
 - Starts with a simple password gate using password `6767`
 - Runs directly in the browser after password entry
@@ -47,4 +47,4 @@ https://github.com/musaabhasan/khalid-craft
 - `assets/img/khalid-main-character.png` - Khalid main character portrait
 - `assets/img/omar-secondary-character.jpg` - Omar secondary character portrait
 - `assets/img/67-character.png` - 67 friend character portrait
-- `assets/img/tung-tung-tung-sahur.png` - Tung Tung Tung Sahur funny character portrait
+- `assets/img/tung-tung-tung-sahur.png` - TTT Sahur funny character portrait

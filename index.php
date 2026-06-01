@@ -69,7 +69,7 @@ $characters = [
         'scale' => [2.75, 4.15, 1],
     ],
     [
-        'name' => 'Tung Tung Tung Sahur',
+        'name' => 'TTT Sahur',
         'role' => 'Silly Drummer',
         'image' => $assetUrl('assets/img/tung-tung-tung-sahur.png'),
         'position' => [7, 5.45, 10],
