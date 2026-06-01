@@ -57,7 +57,7 @@ const dom = {
     questReset: document.getElementById('questResetButton'),
 };
 
-const compactMenuQuery = window.matchMedia('(max-width: 1050px), (pointer: coarse)');
+const compactMenuQuery = window.matchMedia('(max-width: 1050px), (pointer: coarse), (max-width: 1280px) and (max-height: 900px)');
 const blockTypes = [
     { id: 'grass', name: 'Grass', color: '#5ca84f', side: '#6f5134' },
     { id: 'dirt', name: 'Dirt', color: '#7a5434' },
@@ -999,6 +999,7 @@ function setMenuCollapsed(collapsed) {
     dom.menuToggle?.setAttribute('title', collapsed ? 'Show tools' : 'Hide tools');
     dom.menuToggle?.setAttribute('aria-label', collapsed ? 'Show tools' : 'Hide tools');
 
+    const isCompactMenu = compactMenuQuery.matches;
     if (dom.worldPanel) {
         if (collapsed) {
             dom.worldPanel.setAttribute('aria-hidden', 'true');
@@ -1006,6 +1007,30 @@ function setMenuCollapsed(collapsed) {
             dom.worldPanel.removeAttribute('aria-hidden');
         }
         dom.worldPanel.inert = collapsed;
+
+        if (isCompactMenu) {
+            dom.worldPanel.style.transition = 'none';
+            dom.worldPanel.style.opacity = collapsed ? '0' : '1';
+            dom.worldPanel.style.transform = collapsed ? 'translateX(calc(-100% - 12px))' : 'translateX(0)';
+            dom.worldPanel.style.pointerEvents = collapsed ? 'none' : 'auto';
+        } else {
+            dom.worldPanel.style.transition = '';
+            dom.worldPanel.style.opacity = '';
+            dom.worldPanel.style.transform = '';
+            dom.worldPanel.style.pointerEvents = '';
+        }
+    }
+
+    if (dom.menuScrim) {
+        if (isCompactMenu) {
+            dom.menuScrim.style.transition = 'none';
+            dom.menuScrim.style.opacity = collapsed ? '0' : '1';
+            dom.menuScrim.style.pointerEvents = collapsed ? 'none' : 'auto';
+        } else {
+            dom.menuScrim.style.transition = '';
+            dom.menuScrim.style.opacity = '';
+            dom.menuScrim.style.pointerEvents = '';
+        }
     }
 
     const icon = dom.menuToggle?.querySelector('i');
