@@ -68,6 +68,13 @@ $characters = [
         'position' => [5, 5.35, 7],
         'scale' => [2.75, 4.15, 1],
     ],
+    [
+        'name' => 'Tung Tung Tung Sahur',
+        'role' => 'Silly Drummer',
+        'image' => $assetUrl('assets/img/tung-tung-tung-sahur.png'),
+        'position' => [7, 5.45, 10],
+        'scale' => [2.1, 4.1, 1],
+    ],
 ];
 $characterNames = implode(' + ', array_column($characters, 'name'));
 $cssPath = 'assets/css/app.css';

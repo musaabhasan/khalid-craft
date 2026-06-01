@@ -27,6 +27,10 @@ function makeCharacterReadyFlag(name) {
     return `__KHALIDCRAFT_${cleaned || 'FRIEND'}_AVATAR_READY`;
 }
 
+function normalizeCharacterName(name) {
+    return String(name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 const dom = {
     canvas: document.getElementById('gameCanvas'),
     stage: document.getElementById('stage'),
@@ -95,6 +99,7 @@ const pointer = new THREE.Vector2(0, 0);
 const cube = new THREE.BoxGeometry(1, 1, 1);
 const starGeometry = new THREE.OctahedronGeometry(0.42, 0);
 const funnySparkGeometry = new THREE.OctahedronGeometry(0.12, 0);
+const characterTextureLoader = new THREE.TextureLoader();
 const dummy = new THREE.Object3D();
 const clock = new THREE.Clock();
 const worldBounds = { min: -64, max: 64, minY: -16, maxY: 64 };
@@ -188,7 +193,7 @@ function init() {
     startKidQuest();
     loadWorldList();
     const roster = formatCharacterList(characters.map((item) => item.name));
-    showStatus(`${roster} are exploring. 67 is being silly!`, false, 2600);
+    showStatus(`${roster} are exploring. The funny friends are being silly!`, false, 2600);
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', () => window.setTimeout(resize, 250));
     window.visualViewport?.addEventListener('resize', resize);
@@ -446,6 +451,25 @@ function createFunny67BodySprite() {
         depthWrite: false,
     }));
     sprite.scale.set(1.72, 1.72, 1);
+    sprite.userData.baseScale = sprite.scale.clone();
+
+    return sprite;
+}
+
+function createCharacterImageSprite(character, width, height) {
+    const texture = characterTextureLoader.load(character.image, (loadedTexture) => {
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
+        loadedTexture.needsUpdate = true;
+    });
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+    }));
+    sprite.renderOrder = 20;
+    sprite.scale.set(width, height, 1);
+    sprite.userData.baseScale = sprite.scale.clone();
 
     return sprite;
 }
@@ -532,6 +556,7 @@ function createFunny67Model() {
 
     parts.body = createFunny67BodySprite();
     parts.body.position.set(0, 1.95, 0);
+    parts.body.userData.baseY = parts.body.position.y;
     root.add(parts.body);
     parts.leftArm = addCharacterBox(root, [0.16, 0.92, 0.16], [-0.98, 1.62, 0], '#8d87ff', { rotation: [0, 0, -0.34] });
     parts.rightArm = addCharacterBox(root, [0.16, 0.92, 0.16], [0.98, 1.62, 0], '#8d87ff', { rotation: [0, 0, 0.34] });
@@ -548,6 +573,8 @@ function createFunny67Model() {
     parts.hat = addCharacterCone(root, 0.2, 0.46, [0.32, 2.92, 0], '#ffcc3d');
     parts.bubble = createSpeechBubble('WHEE!');
     parts.bubble.position.set(0.72, 3.42, 0);
+    parts.bubble.userData.baseX = parts.bubble.position.x;
+    parts.bubble.userData.baseY = parts.bubble.position.y;
     root.add(parts.bubble);
     parts.tears = [-0.3, 0.22].map((x, tearIndex) => {
         const tear = createTearSprite();
@@ -574,10 +601,47 @@ function createFunny67Model() {
     return { root, parts, height: 3.68, funny: true };
 }
 
+function createTungTungSahurModel(character) {
+    const root = new THREE.Group();
+    const parts = {};
+
+    parts.body = createCharacterImageSprite(character, 1.75, 3.55);
+    parts.body.position.set(0, 1.92, 0);
+    parts.body.userData.baseY = parts.body.position.y;
+    root.add(parts.body);
+
+    parts.footBeat = addCharacterBox(root, [1.18, 0.12, 0.52], [0, 0.08, 0.02], '#9a5a24', {
+        material: { emissive: '#d47a2a', emissiveIntensity: 0.12, opacity: 0.72 },
+    });
+    parts.bubble = createSpeechBubble('TUNG!');
+    parts.bubble.position.set(0.9, 3.68, 0);
+    parts.bubble.userData.baseX = parts.bubble.position.x;
+    parts.bubble.userData.baseY = parts.bubble.position.y;
+    root.add(parts.bubble);
+    parts.sparkles = Array.from({ length: 6 }, (_, sparkleIndex) => {
+        const sparkle = new THREE.Mesh(
+            funnySparkGeometry,
+            characterMaterial(sparkleIndex % 2 === 0 ? '#ffd463' : '#ff9e4f', {
+                emissive: sparkleIndex % 2 === 0 ? '#ffd463' : '#ff9e4f',
+                emissiveIntensity: 0.9,
+            })
+        );
+        sparkle.castShadow = false;
+        root.add(sparkle);
+        return sparkle;
+    });
+
+    return { root, parts, height: 3.82, funny: true, tung: true };
+}
+
 function createCharacterModel(character) {
-    const name = String(character.name).toLowerCase();
+    const name = normalizeCharacterName(character.name);
     if (name === '67') {
         return createFunny67Model();
+    }
+
+    if (name.includes('tung') || name.includes('sahur')) {
+        return createTungTungSahurModel(character);
     }
 
     if (name === 'omar') {
@@ -1365,7 +1429,10 @@ function updateMovement(delta) {
 }
 
 function createCharacterActor(character, index, group, model) {
-    const isFunny = String(character.name) === '67';
+    const normalizedName = normalizeCharacterName(character.name);
+    const isTagTarget = normalizedName === '67';
+    const isTung = normalizedName.includes('tung') || normalizedName.includes('sahur');
+    const isFunny = isTagTarget || isTung;
     return {
         character,
         index,
@@ -1374,10 +1441,12 @@ function createCharacterActor(character, index, group, model) {
         home: new THREE.Vector3(group.position.x, 0, group.position.z),
         target: new THREE.Vector3(group.position.x, 0, group.position.z),
         nextTargetAt: 0,
-        speed: isFunny ? 3.15 : 1.35 + index * 0.18,
+        speed: isTagTarget ? 3.15 : isTung ? 2.45 : 1.35 + index * 0.18,
         phase: index * 1.73 + Math.random() * 0.4,
         action: 'wander',
         isFunny,
+        isTagTarget,
+        isTung,
     };
 }
 
@@ -1522,8 +1591,8 @@ function getComedyPoint(key, rightOffset, forwardOffset) {
 }
 
 function getCharacterActor(name) {
-    const expected = String(name).toLowerCase();
-    return characterActors.find((actor) => String(actor.character.name).toLowerCase() === expected);
+    const expected = normalizeCharacterName(name);
+    return characterActors.find((actor) => normalizeCharacterName(actor.character.name) === expected);
 }
 
 function moveActorToward(actor, target, delta, speedScale = 1) {
@@ -1564,7 +1633,7 @@ function applyComedySceneActor(actor, delta, elapsed) {
         return null;
     }
 
-    const name = String(actor.character.name).toLowerCase();
+    const name = normalizeCharacterName(actor.character.name);
     const progress = elapsed - comedyScene.stageStarted;
     const khalid = getCharacterActor('Khalid');
     const omar = getCharacterActor('Omar');
@@ -1591,8 +1660,10 @@ function applyComedySceneActor(actor, delta, elapsed) {
             return distance;
         }
 
-        actor.action = 'watch';
-        return moveActorToward(actor, getComedyPoint('handshake-67', 0, 2.4), delta, 1.2);
+        actor.action = actor.isTung ? 'drum' : 'watch';
+        const spectatorSide = actor.isTung ? -2.4 : 0;
+        const spectatorForward = actor.isTung ? 2.8 : 2.4;
+        return moveActorToward(actor, getComedyPoint(`handshake-${name}`, spectatorSide, spectatorForward), delta, actor.isTung ? 1.4 : 1.2);
     }
 
     if (stage === 'dance') {
@@ -1604,11 +1675,21 @@ function applyComedySceneActor(actor, delta, elapsed) {
     }
 
     if (stage === 'chase') {
-        if (actor.isFunny) {
+        if (actor.isTagTarget) {
             actor.action = 'chased';
             const angle = progress * 2.35;
             const point = comedyMovingPoint(Math.cos(angle) * 4.1, Math.sin(angle) * 3.2);
             return moveActorToward(actor, point, delta, 1.65);
+        }
+
+        if (actor.isTung) {
+            actor.action = 'drum';
+            const point = getComedyPoint('chase-tung', 0, 3.2);
+            const distance = moveActorToward(actor, point, delta, 1.35);
+            if (funny67) {
+                faceActorToward(actor, funny67.group.position, delta, 8);
+            }
+            return distance;
         }
 
         actor.action = 'chase';
@@ -1626,10 +1707,20 @@ function applyComedySceneActor(actor, delta, elapsed) {
     }
 
     if (stage === 'tag') {
-        if (actor.isFunny) {
+        if (actor.isTagTarget) {
             actor.action = 'cry';
             const point = getComedyPoint('tag-67', 0, 0);
             return moveActorToward(actor, point, delta, 1.4);
+        }
+
+        if (actor.isTung) {
+            actor.action = 'drum';
+            const point = getComedyPoint('tag-tung', 0, 2.7);
+            const distance = moveActorToward(actor, point, delta, 1.35);
+            if (funny67) {
+                faceActorToward(actor, funny67.group.position, delta, 8);
+            }
+            return distance;
         }
 
         actor.action = 'playTag';
@@ -1643,9 +1734,10 @@ function applyComedySceneActor(actor, delta, elapsed) {
     }
 
     if (stage === 'makeup') {
-        actor.action = actor.isFunny ? 'makeup67' : 'makeup';
-        const side = name === 'khalid' ? -1.15 : name === 'omar' ? 1.15 : 0;
-        const point = getComedyPoint(`makeup-${name}`, side, 0);
+        actor.action = actor.isTagTarget ? 'makeup67' : actor.isTung ? 'drum' : 'makeup';
+        const side = name === 'khalid' ? -1.15 : name === 'omar' ? 1.15 : actor.isTung ? 2.35 : 0;
+        const forward = actor.isTung ? 1.35 : 0;
+        const point = getComedyPoint(`makeup-${name}`, side, forward);
         const distance = moveActorToward(actor, point, delta, 1.5);
         const center = getComedyPoint('makeup-67', 0, 0);
         faceActorToward(actor, center, delta, 6);
@@ -1726,6 +1818,8 @@ function updateCharacterGrounding(actor, distance) {
         hop += Math.abs(Math.sin(elapsed * 7.8 + actor.phase)) * (actor.isFunny ? 0.62 : 0.42);
     } else if (actor.action === 'playTag' || actor.action === 'chase') {
         hop += Math.abs(Math.sin(elapsed * 9.2 + actor.phase)) * 0.16;
+    } else if (actor.action === 'drum') {
+        hop += Math.abs(Math.sin(elapsed * 13.5 + actor.phase)) * (actor.isTung ? 0.24 : 0.18);
     } else if (actor.action === 'cry') {
         hop = Math.abs(Math.sin(elapsed * 12 + actor.phase)) * 0.12;
     } else if (actor.action === 'makeup' || actor.action === 'makeup67') {
@@ -1758,9 +1852,17 @@ function animateCharacterModel(actor, distance, elapsed) {
 
     if (parts.body) {
         const crySquish = actor.action === 'cry' ? Math.sin(elapsed * 15 + actor.phase) * 0.08 : 0;
-        parts.body.position.y = 1.95 + Math.sin(elapsed * 8.4 + actor.phase) * 0.08;
-        parts.body.scale.set(1 + crySquish, 1 - Math.abs(crySquish) * 0.4, 1);
-        parts.body.material.rotation = Math.sin(elapsed * (actor.action === 'cry' ? 8 : 3.2)) * (actor.action === 'cry' ? 0.11 : 0.05);
+        const bodyBaseY = parts.body.userData.baseY ?? 1.95;
+        const bodyBaseScale = parts.body.userData.baseScale ?? new THREE.Vector3(1, 1, 1);
+        const drumBounce = actor.action === 'drum' ? Math.abs(Math.sin(elapsed * 13.5 + actor.phase)) * 0.16 : 0;
+        parts.body.position.y = bodyBaseY + Math.sin(elapsed * 8.4 + actor.phase) * 0.08 + drumBounce;
+        parts.body.scale.set(
+            bodyBaseScale.x * (1 + crySquish),
+            bodyBaseScale.y * (1 - Math.abs(crySquish) * 0.4),
+            bodyBaseScale.z
+        );
+        parts.body.material.rotation = Math.sin(elapsed * (actor.action === 'cry' ? 8 : actor.action === 'drum' ? 12 : 3.2))
+            * (actor.action === 'cry' ? 0.11 : actor.action === 'drum' ? 0.08 : 0.05);
     }
     if (parts.leftGlove) {
         parts.leftGlove.position.y = 1.02 + Math.sin(elapsed * 9.5 + actor.phase) * 0.22;
@@ -1773,20 +1875,33 @@ function animateCharacterModel(actor, distance, elapsed) {
         parts.hat.position.y = 2.92 + Math.abs(Math.sin(elapsed * 7.6 + actor.phase)) * 0.16;
     }
     if (parts.bubble) {
-        const bubbleText = actor.action === 'cry'
-            ? 'WAH!'
-            : actor.action === 'chased'
-                ? 'EEK!'
-                : actor.action === 'makeup67'
-                    ? 'OK!'
-                    : 'WHEE!';
+        const bubbleText = actor.isTung
+            ? actor.action === 'dance'
+                ? 'TUNG!'
+                : actor.action === 'drum'
+                    ? 'TUNG!'
+                    : 'SAHUR!'
+            : actor.action === 'cry'
+                ? 'WAH!'
+                : actor.action === 'chased'
+                    ? 'EEK!'
+                    : actor.action === 'makeup67'
+                        ? 'OK!'
+                        : 'WHEE!';
         setSpeechBubbleText(parts.bubble, bubbleText);
-        parts.bubble.visible = actor.action === 'cry'
+        parts.bubble.visible = actor.isTung
+            || actor.action === 'cry'
             || actor.action === 'chased'
             || actor.action === 'makeup67'
             || Math.sin(elapsed * 1.4 + actor.phase) > -0.35;
-        parts.bubble.position.x = 0.72 + Math.sin(elapsed * 3.4) * 0.08;
-        parts.bubble.position.y = 3.42 + Math.abs(Math.sin(elapsed * 5.4)) * 0.12;
+        const bubbleBaseX = parts.bubble.userData.baseX ?? 0.72;
+        const bubbleBaseY = parts.bubble.userData.baseY ?? 3.42;
+        parts.bubble.position.x = bubbleBaseX + Math.sin(elapsed * 3.4) * 0.08;
+        parts.bubble.position.y = bubbleBaseY + Math.abs(Math.sin(elapsed * 5.4)) * 0.12;
+    }
+    if (parts.footBeat) {
+        parts.footBeat.scale.x = 1 + Math.abs(Math.sin(elapsed * 13.5 + actor.phase)) * 0.2;
+        parts.footBeat.rotation.y += 0.08;
     }
     if (parts.tears) {
         parts.tears.forEach((tear, tearIndex) => {
@@ -1852,6 +1967,14 @@ function applyComedyPose(actor, parts, elapsed, step) {
         }
         if (parts.rightArm) {
             parts.rightArm.rotation.z = 0.82 - Math.cos(elapsed * 12 + actor.phase) * 0.55;
+        }
+    } else if (actor.action === 'drum') {
+        actor.model.root.rotation.z = Math.sin(elapsed * 13.5 + actor.phase) * (actor.isTung ? 0.18 : 0.12);
+        if (parts.leftArm) {
+            parts.leftArm.rotation.z = -0.5 + wave * 0.35;
+        }
+        if (parts.rightArm) {
+            parts.rightArm.rotation.z = 0.5 - wave * 0.35;
         }
     } else if (actor.action === 'cry') {
         actor.model.root.rotation.z = Math.sin(elapsed * 14 + actor.phase) * 0.18;
