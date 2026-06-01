@@ -113,19 +113,21 @@ $jsUrl = $assetUrl($jsPath);
     <?php if (!$gameUnlocked): ?>
         <main class="lock-shell">
             <section class="lock-stage" aria-label="Enter Khalid Craft">
-                <img class="lock-hero-image" src="<?= htmlspecialchars($lockHeroUrl, ENT_QUOTES, 'UTF-8') ?>" alt="KhalidCraft esports world">
+                <div class="lock-art">
+                    <img class="lock-hero-image" src="<?= htmlspecialchars($lockHeroUrl, ENT_QUOTES, 'UTF-8') ?>" alt="KhalidCraft esports world">
+                </div>
                 <div class="lock-panel">
                     <div class="brand lock-brand" aria-label="<?= $appName ?>">
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span class="brand-name"><?= $appName ?></span>
                     </div>
                     <form class="password-form" method="post" autocomplete="off">
-                        <label for="gamePassword">Password</label>
+                        <label for="gamePassword">Secret Code</label>
                         <div class="password-row">
                             <input id="gamePassword" name="game_password" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12" autofocus required>
                             <button class="button primary" type="submit">
                                 <i data-lucide="log-in" aria-hidden="true"></i>
-                                <span>Enter</span>
+                                <span>Play</span>
                             </button>
                         </div>
                         <?php if ($gateError !== ''): ?>

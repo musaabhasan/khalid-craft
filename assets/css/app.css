@@ -111,14 +111,23 @@ select:disabled {
     height: 100dvh;
     min-height: 100vh;
     min-height: 100dvh;
-    overflow: hidden;
-    background: #080d16;
+    overflow: auto;
+    background:
+        linear-gradient(135deg, rgba(53, 217, 230, 0.14), transparent 34%),
+        linear-gradient(225deg, rgba(236, 111, 189, 0.14), transparent 36%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        #080d16;
+    background-size: auto, auto, 34px 34px, 34px 34px, auto;
 }
 
 .lock-stage {
     position: relative;
     display: grid;
-    place-items: center end;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    align-items: center;
+    justify-items: center;
+    gap: clamp(18px, 4vw, 46px);
     width: 100%;
     min-height: 100%;
     padding: max(24px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left));
@@ -131,31 +140,81 @@ select:disabled {
     inset: 0;
     z-index: -1;
     background:
-        linear-gradient(90deg, rgba(4, 8, 15, 0.08) 0%, rgba(4, 8, 15, 0.18) 44%, rgba(4, 8, 15, 0.82) 100%),
-        linear-gradient(180deg, rgba(6, 10, 18, 0.04) 0%, rgba(6, 10, 18, 0.18) 45%, rgba(6, 10, 18, 0.78) 100%);
+        linear-gradient(90deg, rgba(4, 8, 15, 0.08) 0%, rgba(4, 8, 15, 0.36) 58%, rgba(4, 8, 15, 0.78) 100%),
+        linear-gradient(180deg, rgba(6, 10, 18, 0.04) 0%, rgba(6, 10, 18, 0.18) 45%, rgba(6, 10, 18, 0.72) 100%);
+}
+
+.lock-art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: min(62vw, 650px);
+    height: min(calc(100dvh - 48px), 780px);
+    min-height: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+        rgba(5, 9, 16, 0.58);
+    box-shadow: 0 24px 68px rgba(0, 0, 0, 0.46);
+}
+
+.lock-art::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.lock-art::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 28%;
+    background: linear-gradient(180deg, transparent, rgba(2, 5, 10, 0.36));
+    pointer-events: none;
+    z-index: 1;
 }
 
 .lock-hero-image {
     position: absolute;
     inset: 0;
-    z-index: -2;
+    z-index: 0;
+    display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: 50% 12%;
+    object-fit: contain;
+    object-position: center;
 }
 
 .lock-panel {
+    position: relative;
     width: min(420px, 100%);
-    padding: 22px;
+    padding: 24px;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: rgba(10, 15, 22, 0.78);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
+        rgba(10, 15, 22, 0.84);
     box-shadow: 0 22px 64px rgba(0, 0, 0, 0.48);
     backdrop-filter: blur(16px);
+    overflow: hidden;
+}
+
+.lock-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--gold), var(--pink));
 }
 
 .lock-brand {
+    justify-content: flex-start;
     margin-bottom: 18px;
 }
 
@@ -165,10 +224,10 @@ select:disabled {
 }
 
 .password-form label {
-    color: var(--muted);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    color: #ffe39a;
+    font-size: 0.84rem;
+    font-weight: 900;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
 }
 
@@ -1227,9 +1286,32 @@ select option {
     }
 }
 
+@media (max-width: 1100px) and (min-height: 521px) {
+    .lock-stage {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+        align-items: center;
+        justify-items: center;
+        gap: 14px;
+    }
+
+    .lock-art {
+        width: min(100%, 560px);
+        height: min(56dvh, 640px);
+    }
+
+    .lock-panel {
+        width: min(520px, 100%);
+    }
+}
+
 @media (max-width: 900px) {
     .lock-stage {
-        place-items: end center;
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+        align-items: center;
+        justify-items: center;
+        gap: 14px;
         padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     }
 
@@ -1239,8 +1321,9 @@ select option {
             linear-gradient(90deg, rgba(5, 8, 15, 0.08), rgba(5, 8, 15, 0.28));
     }
 
-    .lock-hero-image {
-        object-position: 50% 0%;
+    .lock-art {
+        width: min(100%, 540px);
+        height: min(58dvh, 650px);
     }
 
     .lock-panel {
@@ -1360,7 +1443,14 @@ select option {
 
 @media (max-width: 560px) {
     .lock-stage {
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 10px;
         padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    }
+
+    .lock-art {
+        width: 100%;
+        height: min(54dvh, 470px);
     }
 
     .lock-panel {
@@ -1463,6 +1553,10 @@ select option {
 }
 
 @media (max-width: 380px) {
+    .lock-art {
+        height: min(52dvh, 430px);
+    }
+
     .lock-panel {
         padding: 16px;
     }
@@ -1503,7 +1597,11 @@ select option {
 
 @media (max-width: 1050px) and (max-height: 520px) {
     .lock-stage {
-        place-items: center end;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+        grid-template-rows: 1fr;
+        align-items: center;
+        justify-items: center;
+        gap: 12px;
         padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
     }
 
@@ -1513,12 +1611,14 @@ select option {
             linear-gradient(180deg, rgba(5, 8, 15, 0.08), rgba(5, 8, 15, 0.46));
     }
 
-    .lock-hero-image {
-        object-position: 50% 12%;
+    .lock-art {
+        width: 100%;
+        height: calc(100dvh - 20px);
+        max-height: 500px;
     }
 
     .lock-panel {
-        width: min(360px, 46vw);
+        width: 100%;
         padding: 16px;
     }
 
