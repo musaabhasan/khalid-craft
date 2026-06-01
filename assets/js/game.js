@@ -1514,7 +1514,8 @@ function updateComedyScene(elapsed) {
         handshake: 'dance',
         dance: 'chase',
         chase: 'tag',
-        tag: 'makeup',
+        tag: 'tungChase',
+        tungChase: 'makeup',
         makeup: 'wander',
     }[comedyScene.stage] || 'wander';
 
@@ -1529,6 +1530,7 @@ function enterComedyStage(stage) {
         dance: 5,
         chase: 6,
         tag: 6,
+        tungChase: 9,
         makeup: 4,
     };
     const messages = {
@@ -1536,6 +1538,7 @@ function enterComedyStage(stage) {
         dance: 'Dance party! Khalid and Omar jump together!',
         chase: 'Tag time! Khalid and Omar chase 67!',
         tag: 'Silly play fight! 67 cries funny cartoon tears!',
+        tungChase: 'TTT Sahur chases 67 all around the world!',
         makeup: 'All friends again. 67 feels better!',
     };
 
@@ -1547,9 +1550,12 @@ function enterComedyStage(stage) {
 
     if (stage !== 'wander') {
         setComedyAnchorNearCamera();
-        showStatus(messages[stage], false, stage === 'tag' ? 5200 : 3000);
-        playKidTone(stage === 'tag' ? 420 : 660, 0.08);
-        window.setTimeout(() => playKidTone(stage === 'tag' ? 360 : 820, 0.1), 120);
+        if (stage === 'tungChase') {
+            startTungChaseRoute();
+        }
+        showStatus(messages[stage], false, stage === 'tag' || stage === 'tungChase' ? 5200 : 3000);
+        playKidTone(stage === 'tag' ? 420 : stage === 'tungChase' ? 540 : 660, 0.08);
+        window.setTimeout(() => playKidTone(stage === 'tag' ? 360 : stage === 'tungChase' ? 760 : 820, 0.1), 120);
     } else {
         for (const actor of characterActors) {
             actor.action = 'wander';
@@ -1596,6 +1602,23 @@ function getCharacterActor(name) {
     return characterActors.find((actor) => normalizeCharacterName(actor.character.name) === expected);
 }
 
+function getTungActor() {
+    return characterActors.find((actor) => actor.isTung);
+}
+
+function startTungChaseRoute() {
+    const funny67 = getCharacterActor('67');
+    const tung = getTungActor();
+
+    if (funny67) {
+        choose67EscapeTarget(funny67);
+    }
+    if (tung && funny67) {
+        tung.target.set(funny67.group.position.x, 0, funny67.group.position.z);
+        tung.nextTargetAt = clock.elapsedTime + 1.2;
+    }
+}
+
 function moveActorToward(actor, target, delta, speedScale = 1) {
     const position = actor.group.position;
     const toTarget = new THREE.Vector3(target.x - position.x, 0, target.z - position.z);
@@ -1632,6 +1655,10 @@ function applyComedySceneActor(actor, delta, elapsed) {
     const stage = comedyScene.stage;
     if (stage === 'wander') {
         return null;
+    }
+
+    if (stage === 'tungChase') {
+        return applyTungChaseSceneActor(actor, delta, elapsed);
     }
 
     if (actor.isTung) {
@@ -1729,6 +1756,45 @@ function applyComedySceneActor(actor, delta, elapsed) {
     return null;
 }
 
+function applyTungChaseSceneActor(actor, delta, elapsed) {
+    const funny67 = getCharacterActor('67');
+    const tung = getTungActor();
+
+    if (actor.isTagTarget) {
+        actor.action = 'chased';
+        const distanceToTung = tung
+            ? new THREE.Vector3(
+                actor.group.position.x - tung.group.position.x,
+                0,
+                actor.group.position.z - tung.group.position.z
+            ).length()
+            : Infinity;
+        const distanceToTarget = new THREE.Vector3(
+            actor.target.x - actor.group.position.x,
+            0,
+            actor.target.z - actor.group.position.z
+        ).length();
+
+        if (distanceToTarget < 0.75 || elapsed > actor.nextTargetAt || distanceToTung < 2.6) {
+            choose67EscapeTarget(actor);
+        }
+
+        return moveActorToward(actor, actor.target, delta, 1.72);
+    }
+
+    if (actor.isTung) {
+        actor.action = 'drumChase';
+        if (!funny67) {
+            return null;
+        }
+
+        const chasePoint = new THREE.Vector3(funny67.group.position.x, 0, funny67.group.position.z);
+        return moveActorToward(actor, chasePoint, delta, 2.65);
+    }
+
+    return null;
+}
+
 function chooseCharacterTarget(actor, forceNearHome = false) {
     if (actor.isTung) {
         chooseTungWorldTarget(actor, forceNearHome);
@@ -1762,7 +1828,33 @@ function chooseCharacterTarget(actor, forceNearHome = false) {
 }
 
 function chooseTungWorldTarget(actor, forceNearHome = false) {
+    chooseWideWorldRouteTarget(actor, {
+        forceNearHome,
+        routeOffset: 0,
+        spread: 12,
+        timeoutMin: 5.5,
+        timeoutRange: 3.5,
+    });
+}
+
+function choose67EscapeTarget(actor) {
+    chooseWideWorldRouteTarget(actor, {
+        routeOffset: 4,
+        spread: 14,
+        timeoutMin: 2.4,
+        timeoutRange: 1.8,
+    });
+}
+
+function chooseWideWorldRouteTarget(actor, options = {}) {
     const elapsed = clock.elapsedTime;
+    const {
+        forceNearHome = false,
+        routeOffset = 0,
+        spread = 12,
+        timeoutMin = 5.5,
+        timeoutRange = 3.5,
+    } = options;
     const routePoints = [
         [-18, -14],
         [18, -10],
@@ -1783,9 +1875,9 @@ function chooseTungWorldTarget(actor, forceNearHome = false) {
             candidateX = actor.home.x + (Math.random() - 0.5) * 16;
             candidateZ = actor.home.z + (Math.random() - 0.5) * 16;
         } else {
-            const base = routePoints[(actor.routeTargetCount + attempt) % routePoints.length];
-            candidateX = base[0] + (Math.random() - 0.5) * 12;
-            candidateZ = base[1] + (Math.random() - 0.5) * 12;
+            const base = routePoints[(actor.routeTargetCount + routeOffset + attempt) % routePoints.length];
+            candidateX = base[0] + (Math.random() - 0.5) * spread;
+            candidateZ = base[1] + (Math.random() - 0.5) * spread;
         }
 
         candidateX = clamp(candidateX, worldBounds.min + 4, worldBounds.max - 4);
@@ -1801,7 +1893,7 @@ function chooseTungWorldTarget(actor, forceNearHome = false) {
     }
 
     actor.target.set(x, 0, z);
-    actor.nextTargetAt = elapsed + 5.5 + Math.random() * 3.5;
+    actor.nextTargetAt = elapsed + timeoutMin + Math.random() * timeoutRange;
 }
 
 function updateCharacterActors(delta) {
@@ -1848,7 +1940,7 @@ function updateCharacterGrounding(actor, distance) {
         hop += Math.abs(Math.sin(elapsed * 7.8 + actor.phase)) * (actor.isFunny ? 0.62 : 0.42);
     } else if (actor.action === 'playTag' || actor.action === 'chase') {
         hop += Math.abs(Math.sin(elapsed * 9.2 + actor.phase)) * 0.16;
-    } else if (actor.action === 'drum') {
+    } else if (actor.action === 'drum' || actor.action === 'drumChase') {
         hop += Math.abs(Math.sin(elapsed * 13.5 + actor.phase)) * (actor.isTung ? 0.24 : 0.18);
     } else if (actor.action === 'cry') {
         hop = Math.abs(Math.sin(elapsed * 12 + actor.phase)) * 0.12;
@@ -1884,15 +1976,16 @@ function animateCharacterModel(actor, distance, elapsed) {
         const crySquish = actor.action === 'cry' ? Math.sin(elapsed * 15 + actor.phase) * 0.08 : 0;
         const bodyBaseY = parts.body.userData.baseY ?? 1.95;
         const bodyBaseScale = parts.body.userData.baseScale ?? new THREE.Vector3(1, 1, 1);
-        const drumBounce = actor.action === 'drum' ? Math.abs(Math.sin(elapsed * 13.5 + actor.phase)) * 0.16 : 0;
+        const isDrumming = actor.action === 'drum' || actor.action === 'drumChase';
+        const drumBounce = isDrumming ? Math.abs(Math.sin(elapsed * 13.5 + actor.phase)) * 0.16 : 0;
         parts.body.position.y = bodyBaseY + Math.sin(elapsed * 8.4 + actor.phase) * 0.08 + drumBounce;
         parts.body.scale.set(
             bodyBaseScale.x * (1 + crySquish),
             bodyBaseScale.y * (1 - Math.abs(crySquish) * 0.4),
             bodyBaseScale.z
         );
-        parts.body.material.rotation = Math.sin(elapsed * (actor.action === 'cry' ? 8 : actor.action === 'drum' ? 12 : 3.2))
-            * (actor.action === 'cry' ? 0.11 : actor.action === 'drum' ? 0.08 : 0.05);
+        parts.body.material.rotation = Math.sin(elapsed * (actor.action === 'cry' ? 8 : isDrumming ? 12 : 3.2))
+            * (actor.action === 'cry' ? 0.11 : isDrumming ? 0.08 : 0.05);
     }
     if (parts.leftGlove) {
         parts.leftGlove.position.y = 1.02 + Math.sin(elapsed * 9.5 + actor.phase) * 0.22;
@@ -1906,7 +1999,9 @@ function animateCharacterModel(actor, distance, elapsed) {
     }
     if (parts.bubble) {
         const bubbleText = actor.isTung
-            ? actor.action === 'dance'
+            ? actor.action === 'drumChase'
+                ? 'CHASE!'
+                : actor.action === 'dance'
                 ? 'TUNG!'
                 : actor.action === 'drum'
                     ? 'TUNG!'
@@ -1998,7 +2093,7 @@ function applyComedyPose(actor, parts, elapsed, step) {
         if (parts.rightArm) {
             parts.rightArm.rotation.z = 0.82 - Math.cos(elapsed * 12 + actor.phase) * 0.55;
         }
-    } else if (actor.action === 'drum') {
+    } else if (actor.action === 'drum' || actor.action === 'drumChase') {
         actor.model.root.rotation.z = Math.sin(elapsed * 13.5 + actor.phase) * (actor.isTung ? 0.18 : 0.12);
         if (parts.leftArm) {
             parts.leftArm.rotation.z = -0.5 + wave * 0.35;
