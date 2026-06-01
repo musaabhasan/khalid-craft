@@ -49,21 +49,21 @@ $assetUrl = static function (string $path): string {
 $characters = [
     [
         'name' => 'Khalid',
-        'role' => 'Main Character',
+        'role' => 'Hero Builder',
         'image' => $assetUrl('assets/img/khalid-main-character.png'),
         'position' => [8, 5.7, 7],
         'scale' => [3.2, 4.3, 1],
     ],
     [
         'name' => 'Omar',
-        'role' => 'Secondary Character',
+        'role' => 'Space Explorer',
         'image' => $assetUrl('assets/img/omar-secondary-character.jpg'),
         'position' => [11, 5.35, 7],
         'scale' => [2.55, 4.2, 1],
     ],
     [
         'name' => '67',
-        'role' => 'Friend Character',
+        'role' => 'Funny Friend',
         'image' => $assetUrl('assets/img/67-character.png'),
         'position' => [5, 5.35, 7],
         'scale' => [2.75, 4.15, 1],

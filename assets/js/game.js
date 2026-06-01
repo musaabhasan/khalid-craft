@@ -122,6 +122,10 @@ let currentSeed = makeSeed();
 let meshes = [];
 let characterActors = [];
 let lastTouch = null;
+let touchLookMoved = false;
+let ignoreNextCanvasTap = false;
+let lastInputWasTouch = false;
+let touchInputTimer = null;
 const characterMaterialCache = new Map();
 
 const renderer = new THREE.WebGLRenderer({
@@ -194,22 +198,25 @@ function init() {
     dom.canvas.addEventListener('contextmenu', (event) => event.preventDefault());
     dom.canvas.addEventListener('pointerdown', onPointerDown);
     dom.canvas.addEventListener('pointermove', onPointerMove);
-    dom.canvas.addEventListener('pointerup', () => {
-        lastTouch = null;
-    });
-    dom.canvas.addEventListener('pointercancel', () => {
-        lastTouch = null;
-    });
+    dom.canvas.addEventListener('pointerup', endTouchLook);
+    dom.canvas.addEventListener('pointercancel', endTouchLook);
     document.querySelectorAll('[data-move]').forEach((button) => {
         const move = button.getAttribute('data-move');
         button.addEventListener('pointerdown', (event) => {
             event.preventDefault();
             mobileMoves.add(move);
+            button.classList.add('is-active');
             button.setPointerCapture(event.pointerId);
         });
-        button.addEventListener('pointerup', () => mobileMoves.delete(move));
-        button.addEventListener('pointercancel', () => mobileMoves.delete(move));
-        button.addEventListener('pointerleave', () => mobileMoves.delete(move));
+        const releaseMove = (event) => {
+            event.preventDefault();
+            mobileMoves.delete(move);
+            button.classList.remove('is-active');
+        };
+        button.addEventListener('pointerup', releaseMove);
+        button.addEventListener('pointercancel', releaseMove);
+        button.addEventListener('pointerleave', releaseMove);
+        button.addEventListener('lostpointercapture', releaseMove);
     });
     if (window.lucide) {
         window.lucide.createIcons();
@@ -1114,7 +1121,14 @@ function onCanvasClick(event) {
         return;
     }
 
-    if (!controls.isLocked && event.pointerType !== 'touch') {
+    if (ignoreNextCanvasTap) {
+        event.preventDefault();
+        ignoreNextCanvasTap = false;
+        return;
+    }
+
+    const isTouchLikeClick = event.pointerType === 'touch' || lastInputWasTouch;
+    if (!controls.isLocked && !isTouchLikeClick) {
         controls.lock();
         return;
     }
@@ -1148,7 +1162,18 @@ function onCanvasClick(event) {
 function onPointerDown(event) {
     if (event.pointerType === 'touch') {
         event.preventDefault();
-        lastTouch = { x: event.clientX, y: event.clientY };
+        lastInputWasTouch = true;
+        window.clearTimeout(touchInputTimer);
+        touchInputTimer = window.setTimeout(() => {
+            lastInputWasTouch = false;
+        }, 700);
+        touchLookMoved = false;
+        lastTouch = {
+            x: event.clientX,
+            y: event.clientY,
+            startX: event.clientX,
+            startY: event.clientY,
+        };
         dom.canvas.setPointerCapture(event.pointerId);
     }
 }
@@ -1161,11 +1186,32 @@ function onPointerMove(event) {
     event.preventDefault();
     const dx = event.clientX - lastTouch.x;
     const dy = event.clientY - lastTouch.y;
-    lastTouch = { x: event.clientX, y: event.clientY };
+    const movedFromStart = Math.hypot(event.clientX - lastTouch.startX, event.clientY - lastTouch.startY);
+    if (movedFromStart > 8) {
+        touchLookMoved = true;
+    }
+    lastTouch = {
+        x: event.clientX,
+        y: event.clientY,
+        startX: lastTouch.startX,
+        startY: lastTouch.startY,
+    };
     camera.rotation.order = 'YXZ';
     camera.rotation.y -= dx * 0.004;
     camera.rotation.x -= dy * 0.004;
     camera.rotation.x = Math.max(-Math.PI / 2 + 0.04, Math.min(Math.PI / 2 - 0.04, camera.rotation.x));
+}
+
+function endTouchLook() {
+    if (touchLookMoved) {
+        ignoreNextCanvasTap = true;
+        window.setTimeout(() => {
+            ignoreNextCanvasTap = false;
+        }, 260);
+    }
+
+    lastTouch = null;
+    touchLookMoved = false;
 }
 
 function getHit() {

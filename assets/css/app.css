@@ -22,6 +22,7 @@
 html,
 body {
     width: 100%;
+    height: 100%;
     min-height: 100%;
     margin: 0;
     overflow: hidden;
@@ -57,6 +58,7 @@ select:disabled {
     grid-template-rows: auto 1fr;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     min-height: 520px;
     background:
         linear-gradient(180deg, rgba(95, 158, 139, 0.18), transparent 34%),
@@ -609,6 +611,13 @@ select option {
     background: rgba(16, 20, 23, 0.72);
 }
 
+.mobile-controls button:active,
+.mobile-controls button.is-active {
+    border-color: rgba(255, 226, 122, 0.8);
+    background: rgba(217, 164, 65, 0.26);
+    transform: scale(0.96);
+}
+
 .mobile-controls button[data-move="forward"] {
     grid-column: 2;
 }
@@ -635,12 +644,12 @@ select option {
 
 @media (max-width: 1050px) {
     body {
-        overflow: auto;
+        overflow: hidden;
     }
 
     .shell {
-        min-height: 100dvh;
-        height: auto;
+        height: 100dvh;
+        min-height: 0;
     }
 
     .topbar {
@@ -656,18 +665,35 @@ select option {
     }
 
     .game-layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(52dvh, 1fr);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
     }
 
     .world-panel {
+        order: 2;
         display: grid;
         grid-template-columns: minmax(270px, 0.9fr) minmax(320px, 1.1fr);
         align-items: start;
         gap: 10px;
+        flex: 0 0 auto;
+        max-height: min(38dvh, 360px);
+        overflow-x: hidden;
+        overflow-y: auto;
         padding: 12px;
         border-right: 0;
-        border-bottom: 1px solid var(--line);
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+        box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.32);
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
+
+    .stage {
+        order: 1;
+        flex: 1 1 auto;
+        min-height: 0;
     }
 
     .world-panel > .world-row:first-child,
@@ -761,13 +787,14 @@ select option {
         display: grid;
         left: max(12px, env(safe-area-inset-left));
         bottom: max(12px, env(safe-area-inset-bottom));
-        grid-template-columns: repeat(3, 50px);
-        grid-auto-rows: 50px;
+        grid-template-columns: repeat(3, clamp(52px, 7.5vw, 64px));
+        grid-auto-rows: clamp(52px, 7.5vw, 64px);
+        gap: clamp(8px, 1.4vw, 12px);
     }
 
     .mobile-controls button {
-        width: 50px;
-        height: 50px;
+        width: clamp(52px, 7.5vw, 64px);
+        height: clamp(52px, 7.5vw, 64px);
     }
 
     .stats {
@@ -785,23 +812,73 @@ select option {
 @media (max-width: 700px) {
     .world-panel {
         display: flex;
-        gap: 9px;
+        flex-direction: column;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        max-height: min(36dvh, 300px);
+        padding: 8px max(8px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    }
+
+    .world-panel > .world-row:first-child,
+    .world-panel > .world-row:nth-child(2),
+    .world-panel > .character-list,
+    .world-panel > .kid-panel,
+    .world-panel > .palette {
+        flex: 0 0 auto;
+        grid-column: 1;
+        grid-row: auto;
     }
 
     .character-list {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: flex;
+        gap: 8px;
+        min-width: 0;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scroll-snap-type: x proximity;
+        scrollbar-width: thin;
     }
 
     .kid-panel {
         grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 9px;
     }
 
     .kid-panel-head {
         grid-column: auto;
     }
 
+    .kid-score {
+        min-height: 34px;
+        padding: 6px;
+    }
+
+    .world-row,
+    .world-row + .world-row {
+        grid-template-columns: minmax(0, 1fr) 42px 42px;
+        gap: 6px;
+    }
+
+    input,
+    select,
+    .button,
+    .icon-button {
+        min-height: 42px;
+        height: 42px;
+    }
+
+    .icon-button {
+        width: 42px;
+    }
+
     .palette {
-        grid-template-columns: repeat(10, 46px);
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 46px;
+        grid-template-columns: none;
+        grid-template-rows: 46px;
+        min-width: 0;
         overflow-x: auto;
         padding-bottom: 5px;
         scrollbar-width: thin;
@@ -810,12 +887,43 @@ select option {
     .block-button {
         min-height: 46px;
     }
+
+    .character-card {
+        flex: 0 0 min(76vw, 188px);
+        grid-template-columns: 54px minmax(0, 1fr);
+        min-height: 70px;
+        align-items: center;
+        scroll-snap-align: start;
+    }
+
+    .character-image {
+        width: 54px;
+        height: 58px;
+        object-fit: contain;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .character-copy {
+        padding-bottom: 8px;
+    }
+
+    .character-copy span {
+        font-size: 0.66rem;
+        letter-spacing: 0.05em;
+    }
+
+    .character-copy strong {
+        font-size: 1.08rem;
+    }
 }
 
 @media (max-width: 560px) {
-    .topbar,
-    .world-panel {
+    .topbar {
         padding: 10px;
+    }
+
+    .world-panel {
+        padding: 8px max(8px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
     }
 
     .topbar {
@@ -844,7 +952,7 @@ select option {
     }
 
     .character-copy strong {
-        font-size: 1.08rem;
+        font-size: 1rem;
     }
 
     .kid-panel-title {
@@ -867,7 +975,7 @@ select option {
     .stats {
         right: 10px;
         bottom: 10px;
-        max-width: calc(100% - 190px);
+        max-width: calc(100% - 214px);
     }
 
     .stats span {
@@ -895,14 +1003,15 @@ select option {
     }
 
     .character-card {
-        grid-template-columns: 50px minmax(0, 1fr);
-        min-height: 68px;
+        flex-basis: min(82vw, 172px);
+        grid-template-columns: 48px minmax(0, 1fr);
+        min-height: 64px;
         padding: 7px;
     }
 
     .character-image {
-        width: 50px;
-        height: 54px;
+        width: 48px;
+        height: 50px;
     }
 
     .character-copy span {
@@ -911,5 +1020,132 @@ select option {
 
     .character-copy strong {
         font-size: 1rem;
+    }
+}
+
+@media (max-width: 1050px) and (max-height: 520px) {
+    .topbar {
+        min-height: 48px;
+        padding-top: max(6px, env(safe-area-inset-top));
+        padding-bottom: 6px;
+    }
+
+    .world-panel {
+        max-height: 29dvh;
+        grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr);
+    }
+
+    .kid-panel {
+        display: none;
+    }
+
+    .character-card {
+        min-height: 60px;
+    }
+
+    .character-image {
+        width: 48px;
+        height: 50px;
+    }
+
+    .palette {
+        grid-auto-columns: 40px;
+        grid-template-rows: 40px;
+    }
+
+    .block-button {
+        min-height: 40px;
+    }
+
+    .mobile-controls {
+        grid-template-columns: repeat(3, 48px);
+        grid-auto-rows: 48px;
+        gap: 7px;
+    }
+
+    .mobile-controls button {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (max-width: 1050px) and (orientation: landscape) and (min-width: 700px) {
+    .game-layout {
+        display: grid;
+        grid-template-columns: minmax(250px, min(32vw, 320px)) minmax(0, 1fr);
+    }
+
+    .world-panel {
+        order: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        max-height: none;
+        min-height: 0;
+        padding: 10px;
+        border-top: 0;
+        border-right: 1px solid var(--line);
+        box-shadow: var(--shadow);
+    }
+
+    .stage {
+        order: 0;
+        height: 100%;
+    }
+
+    .world-panel > .world-row:first-child,
+    .world-panel > .world-row:nth-child(2),
+    .world-panel > .character-list,
+    .world-panel > .kid-panel,
+    .world-panel > .palette {
+        flex: 0 0 auto;
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .world-row,
+    .world-row + .world-row {
+        grid-template-columns: minmax(0, 1fr) 42px 42px;
+    }
+
+    .kid-panel {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .kid-panel-head {
+        grid-column: auto;
+    }
+
+    .character-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+
+    .character-card {
+        flex: none;
+        grid-template-columns: 54px minmax(0, 1fr);
+        min-height: 70px;
+    }
+
+    .character-image {
+        width: 54px;
+        height: 56px;
+        object-fit: contain;
+    }
+
+    .palette {
+        grid-auto-columns: auto;
+        grid-auto-flow: row;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-rows: none;
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+
+    .block-button {
+        min-height: 40px;
     }
 }
