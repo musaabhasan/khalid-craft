@@ -200,28 +200,71 @@ function init() {
     dom.canvas.addEventListener('pointermove', onPointerMove);
     dom.canvas.addEventListener('pointerup', endTouchLook);
     dom.canvas.addEventListener('pointercancel', endTouchLook);
+    bindTouchControls();
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+    animate();
+}
+
+function bindTouchControls() {
     document.querySelectorAll('[data-move]').forEach((button) => {
         const move = button.getAttribute('data-move');
         button.addEventListener('pointerdown', (event) => {
             event.preventDefault();
+            event.stopPropagation();
+            markTouchInput(event);
             mobileMoves.add(move);
             button.classList.add('is-active');
             button.setPointerCapture(event.pointerId);
         });
         const releaseMove = (event) => {
-            event.preventDefault();
+            if (event.cancelable) {
+                event.preventDefault();
+            }
+            event.stopPropagation();
             mobileMoves.delete(move);
             button.classList.remove('is-active');
         };
         button.addEventListener('pointerup', releaseMove);
         button.addEventListener('pointercancel', releaseMove);
-        button.addEventListener('pointerleave', releaseMove);
+        button.addEventListener('pointerleave', (event) => {
+            if (event.pointerType === 'mouse') {
+                releaseMove(event);
+            }
+        });
         button.addEventListener('lostpointercapture', releaseMove);
+        button.addEventListener('contextmenu', (event) => event.preventDefault());
     });
-    if (window.lucide) {
-        window.lucide.createIcons();
-    }
-    animate();
+
+    document.querySelectorAll('[data-action]').forEach((button) => {
+        const action = button.getAttribute('data-action');
+        button.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            markTouchInput(event);
+            button.classList.add('is-active');
+            button.setPointerCapture(event.pointerId);
+        });
+        const releaseAction = (event) => {
+            if (event.cancelable) {
+                event.preventDefault();
+            }
+            event.stopPropagation();
+            button.classList.remove('is-active');
+        };
+        button.addEventListener('pointerup', (event) => {
+            releaseAction(event);
+            performTouchAction(action);
+        });
+        button.addEventListener('pointercancel', releaseAction);
+        button.addEventListener('lostpointercapture', releaseAction);
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        button.addEventListener('contextmenu', (event) => event.preventDefault());
+    });
 }
 
 function formatCharacterList(names) {
@@ -1139,8 +1182,16 @@ function onCanvasClick(event) {
     }
 
     if (event.shiftKey || pressed.has('AltLeft') || pressed.has('AltRight')) {
-        removeBlock(hit.key);
+        removeTargetBlock(hit);
         return;
+    }
+
+    placeSelectedBlockFromView(hit);
+}
+
+function placeSelectedBlockFromView(hit = getHit()) {
+    if (!hit) {
+        return false;
     }
 
     const [x, y, z] = parseKey(hit.key);
@@ -1155,18 +1206,51 @@ function onCanvasClick(event) {
             updateQuestUI();
             playKidTone(520, 0.08);
             checkQuestComplete();
+            return true;
         }
     }
+
+    return false;
+}
+
+function removeTargetBlock(hit = getHit()) {
+    if (!hit) {
+        return false;
+    }
+
+    removeBlock(hit.key);
+    return true;
+}
+
+function performTouchAction(action) {
+    if (action === 'place') {
+        const placed = placeSelectedBlockFromView();
+        showStatus(placed ? 'Block added!' : 'Point at a block first.', !placed, 1000);
+        return;
+    }
+
+    if (action === 'remove') {
+        const removed = removeTargetBlock();
+        showStatus(removed ? 'Block popped!' : 'Point at a block first.', !removed, 1000);
+    }
+}
+
+function markTouchInput(event) {
+    if (event.pointerType !== 'touch') {
+        return;
+    }
+
+    lastInputWasTouch = true;
+    window.clearTimeout(touchInputTimer);
+    touchInputTimer = window.setTimeout(() => {
+        lastInputWasTouch = false;
+    }, 700);
 }
 
 function onPointerDown(event) {
     if (event.pointerType === 'touch') {
         event.preventDefault();
-        lastInputWasTouch = true;
-        window.clearTimeout(touchInputTimer);
-        touchInputTimer = window.setTimeout(() => {
-            lastInputWasTouch = false;
-        }, 700);
+        markTouchInput(event);
         touchLookMoved = false;
         lastTouch = {
             x: event.clientX,
@@ -1240,10 +1324,7 @@ function onKeyDown(event) {
     }
 
     if (event.code === 'KeyF') {
-        const hit = getHit();
-        if (hit) {
-            removeBlock(hit.key);
-        }
+        removeTargetBlock();
     }
 }
 

@@ -214,13 +214,43 @@ $jsUrl = $assetUrl($jsPath);
                     <span id="blockCount">0 blocks</span>
                     <span id="selectedBlock">Grass</span>
                 </div>
-                <div class="mobile-controls" aria-label="Movement controls">
-                    <button data-move="forward" aria-label="Forward"><i data-lucide="arrow-up" aria-hidden="true"></i></button>
-                    <button data-move="left" aria-label="Left"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
-                    <button data-move="back" aria-label="Back"><i data-lucide="arrow-down" aria-hidden="true"></i></button>
-                    <button data-move="right" aria-label="Right"><i data-lucide="arrow-right" aria-hidden="true"></i></button>
-                    <button data-move="up" aria-label="Up"><i data-lucide="chevron-up" aria-hidden="true"></i></button>
-                    <button data-move="down" aria-label="Down"><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+                <div class="mobile-controls" aria-label="Touch controls">
+                    <div class="move-pad" aria-label="Move controls">
+                        <button data-move="forward" aria-label="Go forward">
+                            <i data-lucide="arrow-up" aria-hidden="true"></i>
+                            <span>Go</span>
+                        </button>
+                        <button data-move="left" aria-label="Move left">
+                            <i data-lucide="arrow-left" aria-hidden="true"></i>
+                            <span>Left</span>
+                        </button>
+                        <button data-move="back" aria-label="Go back">
+                            <i data-lucide="arrow-down" aria-hidden="true"></i>
+                            <span>Back</span>
+                        </button>
+                        <button data-move="right" aria-label="Move right">
+                            <i data-lucide="arrow-right" aria-hidden="true"></i>
+                            <span>Right</span>
+                        </button>
+                    </div>
+                    <div class="action-pad" aria-label="Build controls">
+                        <button data-move="up" aria-label="Fly up">
+                            <i data-lucide="chevron-up" aria-hidden="true"></i>
+                            <span>Up</span>
+                        </button>
+                        <button data-move="down" aria-label="Fly down">
+                            <i data-lucide="chevron-down" aria-hidden="true"></i>
+                            <span>Down</span>
+                        </button>
+                        <button data-action="place" aria-label="Build block">
+                            <i data-lucide="plus" aria-hidden="true"></i>
+                            <span>Build</span>
+                        </button>
+                        <button data-action="remove" aria-label="Break block">
+                            <i data-lucide="eraser" aria-hidden="true"></i>
+                            <span>Break</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
