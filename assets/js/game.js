@@ -148,12 +148,15 @@ const renderer = new THREE.WebGLRenderer({
     powerPreference: 'high-performance',
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xb6edff);
-scene.fog = new THREE.Fog(0xb6edff, 38, 116);
+scene.background = new THREE.Color(0xc5f4ff);
+scene.fog = new THREE.Fog(0xc5f4ff, 44, 128);
 
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 240);
 camera.position.set(8, 9, 12);
@@ -162,7 +165,7 @@ camera.lookAt(0, 3, 0);
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
 
-const sun = new THREE.DirectionalLight(0xfff0c2, 2.2);
+const sun = new THREE.DirectionalLight(0xfff1c4, 2.45);
 sun.position.set(24, 42, 18);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -171,11 +174,11 @@ sun.shadow.camera.right = 48;
 sun.shadow.camera.top = 48;
 sun.shadow.camera.bottom = -48;
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xbbe7ff, 0x3d3a32, 1.8));
+scene.add(new THREE.HemisphereLight(0xd0f3ff, 0x4e533b, 2.05));
 
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(500, 500),
-    new THREE.MeshStandardMaterial({ color: 0x48614a, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x54714f, roughness: 1 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.52;
